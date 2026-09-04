@@ -147,6 +147,17 @@ The `roomHeater` thing provides the following channels:
 | `upcomingEvent1` | String | Name of the next upcoming event |
 | `manualOverrideUntil`| DateTime | Shows until when the automation is paused due to manual intervention |
 
+## UI Widget
+
+To make controlling and visualizing the heating system as easy as possible, a pre-built openHAB MainUI Widget is included in this repository.
+
+You can find the widget code in the following location:
+**`widget/churchtools_room_widget.json`**
+
+You can import this JSON file directly into your openHAB Developer Tools -> Widgets section. It automatically supports displaying the upcoming events, current/target temperatures, and manual overrides.
+
+![ChurchTools Heating Widget Preview](docs/images/widget_preview.png)
+
 ## Full Example
 
 ### `churchtools.things`
