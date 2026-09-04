@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<addon:addon id="churchtoolsheating" xmlns:addon="https://openhab.org/schemas/addon/v1.0.0">
+    <type>binding</type>
+    <name>ChurchTools Heating Binding</name>
+    <description>Dieses Binding verbindet OpenHAB mit ChurchTools zur intelligenten Heizungssteuerung.</description>
+</addon:addon>

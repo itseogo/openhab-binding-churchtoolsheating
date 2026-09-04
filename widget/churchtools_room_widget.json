@@ -1,0 +1,709 @@
+uid: churchtools_room_widget
+tags:
+  - Churchtools
+  - Heizung
+  - Raum
+props:
+  parameters:
+    - description: Das Item-Prefix für diesen Raum (z.B. Room_Saal)
+      label: Raum Präfix
+      name: prefix
+      required: true
+      type: TEXT
+    - description: Titel des Raums über der Tabelle
+      label: Raum Name
+      name: title
+      required: true
+      type: TEXT
+    - context: item
+      description: Item für den Ventil Status (z.B. vom externen Aktor als Contact). Wenn leer, wird der Relais-Status genutzt.
+      label: Ventil Status Item
+      name: valveItem
+      required: false
+      type: TEXT
+    - context: item
+      description: Item für die Ventilöffnung in % (z.B. vom Heizungsaktor).
+      label: Ventil Öffnung Item (%)
+      name: valveOpeningItem
+      required: false
+      type: TEXT
+    - context: item
+      description: Item für den externen Aktor Basis-Sollwert (z.B. KNX).
+      label: Aktor Soll-Temperatur Item
+      name: knxTargetTempItem
+      required: false
+      type: TEXT
+    - description: URL zum Hintergrundbild (z.B. /static/raum.jpg oder https://...)
+      label: Hintergrundbild URL
+      name: backgroundImage
+      required: false
+      type: TEXT
+    - context: item
+      description: Optional abweichendes Item für _HVAC_Mode. Bleibt es leer, wird 'Prefix_HVAC_Mode' genutzt.
+      label: "Item: HVAC_Mode"
+      name: item_HVAC_Mode
+      required: false
+      type: TEXT
+    - context: item
+      description: Optional abweichendes Item für _Humidity. Bleibt es leer, wird 'Prefix_Humidity' genutzt.
+      label: "Item: Humidity"
+      name: item_Humidity
+      required: false
+      type: TEXT
+    - context: item
+      description: Optional abweichendes Item für _Manual_Override_Until. Bleibt es leer, wird 'Prefix_Manual_Override_Until' genutzt.
+      label: "Item: Manual_Override_Until"
+      name: item_Manual_Override_Until
+      required: false
+      type: TEXT
+    - context: item
+      description: Optional abweichendes Item für _actualHeatingStart. Bleibt es leer, wird 'Prefix_actualHeatingStart' genutzt.
+      label: "Item: actualHeatingStart"
+      name: item_actualHeatingStart
+      required: false
+      type: TEXT
+    - context: item
+      description: Optional abweichendes Item für _currentTemperature. Bleibt es leer, wird 'Prefix_currentTemperature' genutzt.
+      label: "Item: currentTemperature"
+      name: item_currentTemperature
+      required: false
+      type: TEXT
+    - context: item
+      description: Optional abweichendes Item für _heatingEnabled. Bleibt es leer, wird 'Prefix_heatingEnabled' genutzt.
+      label: "Item: heatingEnabled"
+      name: item_heatingEnabled
+      required: false
+      type: TEXT
+    - context: item
+      description: Optional abweichendes Item für _heatingRelay. Bleibt es leer, wird 'Prefix_heatingRelay' genutzt.
+      label: "Item: heatingRelay"
+      name: item_heatingRelay
+      required: false
+      type: TEXT
+    - context: item
+      description: Optional abweichendes Item für _heatingStart. Bleibt es leer, wird 'Prefix_heatingStart' genutzt.
+      label: "Item: heatingStart"
+      name: item_heatingStart
+      required: false
+      type: TEXT
+    - context: item
+      description: Optional abweichendes Item für _nextEvent2End. Bleibt es leer, wird 'Prefix_nextEvent2End' genutzt.
+      label: "Item: nextEvent2End"
+      name: item_nextEvent2End
+      required: false
+      type: TEXT
+    - context: item
+      description: Optional abweichendes Item für _nextEvent2Start. Bleibt es leer, wird 'Prefix_nextEvent2Start' genutzt.
+      label: "Item: nextEvent2Start"
+      name: item_nextEvent2Start
+      required: false
+      type: TEXT
+    - context: item
+      description: Optional abweichendes Item für _nextEvent3End. Bleibt es leer, wird 'Prefix_nextEvent3End' genutzt.
+      label: "Item: nextEvent3End"
+      name: item_nextEvent3End
+      required: false
+      type: TEXT
+    - context: item
+      description: Optional abweichendes Item für _nextEvent3Start. Bleibt es leer, wird 'Prefix_nextEvent3Start' genutzt.
+      label: "Item: nextEvent3Start"
+      name: item_nextEvent3Start
+      required: false
+      type: TEXT
+    - context: item
+      description: Optional abweichendes Item für _nextEventEnd. Bleibt es leer, wird 'Prefix_nextEventEnd' genutzt.
+      label: "Item: nextEventEnd"
+      name: item_nextEventEnd
+      required: false
+      type: TEXT
+    - context: item
+      description: Optional abweichendes Item für _nextEventStart. Bleibt es leer, wird 'Prefix_nextEventStart' genutzt.
+      label: "Item: nextEventStart"
+      name: item_nextEventStart
+      required: false
+      type: TEXT
+    - context: item
+      description: Optional abweichendes Item für _summerMode. Bleibt es leer, wird 'Prefix_summerMode' genutzt.
+      label: "Item: summerMode"
+      name: item_summerMode
+      required: false
+      type: TEXT
+    - context: item
+      description: Optional abweichendes Item für _targetTemperature. Bleibt es leer, wird 'Prefix_targetTemperature' genutzt.
+      label: "Item: targetTemperature"
+      name: item_targetTemperature
+      required: false
+      type: TEXT
+    - context: item
+      description: Optional abweichendes Item für _upcomingEvent1. Bleibt es leer, wird 'Prefix_upcomingEvent1' genutzt.
+      label: "Item: upcomingEvent1"
+      name: item_upcomingEvent1
+      required: false
+      type: TEXT
+    - context: item
+      description: Optional abweichendes Item für _upcomingEvent2. Bleibt es leer, wird 'Prefix_upcomingEvent2' genutzt.
+      label: "Item: upcomingEvent2"
+      name: item_upcomingEvent2
+      required: false
+      type: TEXT
+    - context: item
+      description: Optional abweichendes Item für _upcomingEvent3. Bleibt es leer, wird 'Prefix_upcomingEvent3' genutzt.
+      label: "Item: upcomingEvent3"
+      name: item_upcomingEvent3
+      required: false
+      type: TEXT
+timestamp: Mar 17, 2026, 9:15:04 PM
+component: f7-block
+config:
+  style:
+    padding: 0
+    margin: 0
+    display: flex
+    flex-direction: column
+    gap: 15px
+slots:
+  default:
+    - component: f7-card
+      config:
+        style:
+          border-radius: 12px
+          overflow: hidden
+          margin: 0
+      slots:
+        default:
+          - component: f7-card-content
+            config:
+              style:
+                padding: 0
+            slots:
+              default:
+                - component: f7-block
+                  config:
+                    style:
+                      height: 200px
+                      background-image: ="url(" + (props.backgroundImage || "https://images.unsplash.com/photo-1497366216548-37526070297c?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80") + ")"
+                      background-size: cover
+                      background-position: center
+                      margin: 0
+                - component: f7-row
+                  config:
+                    class: align-items-center
+                    style:
+                      padding: 15px
+                      background: white
+                  slots:
+                    default:
+                      - component: f7-col
+                        config:
+                          width: "15"
+                        slots:
+                          default:
+                            - component: f7-icon
+                              config:
+                                f7: app_badge
+                                color: blue
+                                size: 28
+                      - component: f7-col
+                        config:
+                          width: "85"
+                        slots:
+                          default:
+                            - component: Label
+                              config:
+                                text: =props.title
+                                style:
+                                  font-weight: bold
+                                  font-size: 16px
+                                  color: black
+                            - component: Label
+                              config:
+                                text: '=((items[(props.item_currentTemperature || (props.prefix + "_currentTemperature"))].state === "NULL" || items[(props.item_currentTemperature || (props.prefix + "_currentTemperature"))].state === "UNDEF") ? "-": (items[(props.item_currentTemperature || (props.prefix + "_currentTemperature"))].displayState || items[(props.item_currentTemperature || (props.prefix + "_currentTemperature"))].state)) + " · " + ((items[(props.item_Humidity || (props.prefix + "_Humidity"))].state === "NULL" || items[(props.item_Humidity || (props.prefix + "_Humidity"))].state === "UNDEF") ? "-": (items[(props.item_Humidity || (props.prefix + "_Humidity"))].displayState || items[(props.item_Humidity || (props.prefix + "_Humidity"))].state))'
+                                style:
+                                  font-size: 12px
+                                  color: gray
+    - component: f7-card
+      config:
+        style:
+          border-radius: 12px
+          margin: 0
+          margin-bottom: 10px
+          background-color: "#cce5ff"
+          border: 1px solid #b8daff
+        visible: '=items[(props.item_summerMode || (props.prefix + "_summerMode"))].state === "ON"'
+      slots:
+        default:
+          - component: f7-row
+            config:
+              class: align-items-center
+              style:
+                padding: 10px
+            slots:
+              default:
+                - component: f7-col
+                  config:
+                    width: "15"
+                    class: text-align-center
+                  slots:
+                    default:
+                      - component: f7-icon
+                        config:
+                          f7: sun_max_fill
+                          color: blue
+                          size: 24
+                - component: f7-col
+                  config:
+                    width: "85"
+                  slots:
+                    default:
+                      - component: Label
+                        config:
+                          text: '="Sommerbetrieb " + props.title + " aktiv"'
+                          style:
+                            color: "#004085"
+                            font-weight: bold
+                      - component: Label
+                        config:
+                          text: ="Heizung ist komplett abgeschaltet"
+                          style:
+                            color: "#004085"
+                            font-size: 12px
+    - component: f7-card
+      config:
+        style:
+          border-radius: 12px
+          margin: 0
+          margin-bottom: 10px
+          background-color: "#fff3cd"
+          border: 1px solid #ffe69c
+        visible: '=(items[(props.item_Manual_Override_Until || (props.prefix + "_Manual_Override_Until"))].state !== "NULL" && items[(props.item_Manual_Override_Until || (props.prefix + "_Manual_Override_Until"))].state !== "UNDEF" && items[(props.item_Manual_Override_Until || (props.prefix + "_Manual_Override_Until"))].state !== "-" && dayjs().isBefore(dayjs(items[(props.item_Manual_Override_Until || (props.prefix + "_Manual_Override_Until"))].state)))'
+      slots:
+        default:
+          - component: f7-row
+            config:
+              class: align-items-center
+              style:
+                padding: 10px
+            slots:
+              default:
+                - component: f7-col
+                  config:
+                    width: "15"
+                    class: text-align-center
+                  slots:
+                    default:
+                      - component: f7-icon
+                        config:
+                          f7: hand_raised_fill
+                          color: orange
+                          size: 24
+                - component: f7-col
+                  config:
+                    width: "85"
+                  slots:
+                    default:
+                      - component: Label
+                        config:
+                          text: '="Externer Handbetrieb " + props.title + " aktiv"'
+                          style:
+                            color: "#664d03"
+                            font-weight: bold
+                      - component: Label
+                        config:
+                          text: '="Automatik pausiert bis " + dayjs(items[(props.item_Manual_Override_Until || (props.prefix + "_Manual_Override_Until"))].state).format("HH:mm") + " Uhr"'
+                          style:
+                            color: "#664d03"
+                            font-size: 12px
+                      - component: Label
+                        config:
+                          text: "(Reset: Heizprogramm  aus- und einschalten)"
+                          style:
+                            color: "#856404"
+                            font-size: 11px
+                            font-style: italic
+    - component: f7-card
+      config:
+        style:
+          border-radius: 12px
+          margin: 0
+      slots:
+        default:
+          - component: f7-card-header
+            slots:
+              default:
+                - component: Label
+                  config:
+                    text: ="Die nächsten Veranstaltungen im " + props.title + ":"
+                    style:
+                      font-size: 14px
+                      color: gray
+          - component: f7-card-content
+            slots:
+              default:
+                - component: f7-row
+                  config:
+                    class: align-items-center
+                  slots:
+                    default:
+                      - component: f7-col
+                        config:
+                          width: "15"
+                          class: text-align-center
+                        slots:
+                          default:
+                            - component: Label
+                              config:
+                                text: '=(items[(props.item_nextEventStart || (props.prefix + "_nextEventStart"))].state === "NULL" || items[(props.item_nextEventStart || (props.prefix + "_nextEventStart"))].state === "UNDEF") ? "": dayjs(items[(props.item_nextEventStart || (props.prefix + "_nextEventStart"))].state).format("dd")'
+                                style:
+                                  font-size: 12px
+                            - component: Label
+                              config:
+                                text: '=(items[(props.item_nextEventStart || (props.prefix + "_nextEventStart"))].state === "NULL" || items[(props.item_nextEventStart || (props.prefix + "_nextEventStart"))].state === "UNDEF") ? "-": dayjs(items[(props.item_nextEventStart || (props.prefix + "_nextEventStart"))].state).format("DD")'
+                                style:
+                                  font-size: 24px
+                                  font-weight: bold
+                            - component: Label
+                              config:
+                                text: '=(items[(props.item_nextEventStart || (props.prefix + "_nextEventStart"))].state === "NULL" || items[(props.item_nextEventStart || (props.prefix + "_nextEventStart"))].state === "UNDEF") ? "": dayjs(items[(props.item_nextEventStart || (props.prefix + "_nextEventStart"))].state).format("MMM").toUpperCase()'
+                                style:
+                                  font-size: 10px
+                      - component: f7-col
+                        config:
+                          width: "5"
+                        slots:
+                          default:
+                            - component: f7-block
+                              config:
+                                style:
+                                  width: 1px
+                                  height: 40px
+                                  background: "#007aff"
+                                  margin: 0 auto
+                      - component: f7-col
+                        config:
+                          width: "80"
+                        slots:
+                          default:
+                            - component: Label
+                              config:
+                                text: '=(items[(props.item_upcomingEvent1 || (props.prefix + "_upcomingEvent1"))].state === "NULL" || items[(props.item_upcomingEvent1 || (props.prefix + "_upcomingEvent1"))].state === "UNDEF" || items[(props.item_upcomingEvent1 || (props.prefix + "_upcomingEvent1"))].state === "") ? "Kein Termin": items[(props.item_upcomingEvent1 || (props.prefix + "_upcomingEvent1"))].state'
+                                style:
+                                  font-weight: 600
+                                  font-size: 14px
+                            - component: Label
+                              config:
+                                text: '=(items[(props.item_nextEventStart || (props.prefix + "_nextEventStart"))].state === "NULL" || items[(props.item_nextEventStart || (props.prefix + "_nextEventStart"))].state === "UNDEF") ? "": dayjs(items[(props.item_nextEventStart || (props.prefix + "_nextEventStart"))].state).format("HH:mm") + " - " + dayjs(items[(props.item_nextEventEnd || (props.prefix + "_nextEventEnd"))].state).format("HH:mm")'
+                                style:
+                                  font-size: 12px
+                                  color: gray
+                - component: f7-row
+                  config:
+                    class: align-items-center
+                    visible: '=(items[(props.item_nextEvent2Start || (props.prefix + "_nextEvent2Start"))].state !== "NULL" && items[(props.item_nextEvent2Start || (props.prefix + "_nextEvent2Start"))].state !== "UNDEF" && items[(props.item_nextEvent2Start || (props.prefix + "_nextEvent2Start"))].state !== "-")'
+                    style:
+                      margin-top: 10px
+                      padding-top: 10px
+                      border-top: 1px solid rgba(0, 0, 0, 0.05)
+                  slots:
+                    default:
+                      - component: f7-col
+                        config:
+                          width: "15"
+                          class: text-align-center
+                        slots:
+                          default:
+                            - component: Label
+                              config:
+                                text: '=dayjs(items[(props.item_nextEvent2Start || (props.prefix + "_nextEvent2Start"))].state).format("dd")'
+                                style:
+                                  font-size: 12px
+                            - component: Label
+                              config:
+                                text: '=dayjs(items[(props.item_nextEvent2Start || (props.prefix + "_nextEvent2Start"))].state).format("DD")'
+                                style:
+                                  font-size: 24px
+                                  font-weight: bold
+                            - component: Label
+                              config:
+                                text: '=dayjs(items[(props.item_nextEvent2Start || (props.prefix + "_nextEvent2Start"))].state).format("MMM").toUpperCase()'
+                                style:
+                                  font-size: 10px
+                      - component: f7-col
+                        config:
+                          width: "5"
+                        slots:
+                          default:
+                            - component: f7-block
+                              config:
+                                style:
+                                  width: 1px
+                                  height: 40px
+                                  background: "#007aff"
+                                  margin: 0 auto
+                      - component: f7-col
+                        config:
+                          width: "80"
+                        slots:
+                          default:
+                            - component: Label
+                              config:
+                                text: '=(items[(props.item_upcomingEvent2 || (props.prefix + "_upcomingEvent2"))].state === "NULL" || items[(props.item_upcomingEvent2 || (props.prefix + "_upcomingEvent2"))].state === "UNDEF") ? "": items[(props.item_upcomingEvent2 || (props.prefix + "_upcomingEvent2"))].state'
+                                style:
+                                  font-weight: 600
+                                  font-size: 14px
+                            - component: Label
+                              config:
+                                text: '=dayjs(items[(props.item_nextEvent2Start || (props.prefix + "_nextEvent2Start"))].state).format("HH:mm") + " - " + dayjs(items[(props.item_nextEvent2End || (props.prefix + "_nextEvent2End"))].state).format("HH:mm")'
+                                style:
+                                  font-size: 12px
+                                  color: gray
+                - component: f7-row
+                  config:
+                    class: align-items-center
+                    visible: '=(items[(props.item_nextEvent3Start || (props.prefix + "_nextEvent3Start"))].state !== "NULL" && items[(props.item_nextEvent3Start || (props.prefix + "_nextEvent3Start"))].state !== "UNDEF" && items[(props.item_nextEvent3Start || (props.prefix + "_nextEvent3Start"))].state !== "-")'
+                    style:
+                      margin-top: 10px
+                      padding-top: 10px
+                      border-top: 1px solid rgba(0, 0, 0, 0.05)
+                  slots:
+                    default:
+                      - component: f7-col
+                        config:
+                          width: "15"
+                          class: text-align-center
+                        slots:
+                          default:
+                            - component: Label
+                              config:
+                                text: '=dayjs(items[(props.item_nextEvent3Start || (props.prefix + "_nextEvent3Start"))].state).format("dd")'
+                                style:
+                                  font-size: 12px
+                            - component: Label
+                              config:
+                                text: '=dayjs(items[(props.item_nextEvent3Start || (props.prefix + "_nextEvent3Start"))].state).format("DD")'
+                                style:
+                                  font-size: 24px
+                                  font-weight: bold
+                            - component: Label
+                              config:
+                                text: '=dayjs(items[(props.item_nextEvent3Start || (props.prefix + "_nextEvent3Start"))].state).format("MMM").toUpperCase()'
+                                style:
+                                  font-size: 10px
+                      - component: f7-col
+                        config:
+                          width: "5"
+                        slots:
+                          default:
+                            - component: f7-block
+                              config:
+                                style:
+                                  width: 1px
+                                  height: 40px
+                                  background: "#007aff"
+                                  margin: 0 auto
+                      - component: f7-col
+                        config:
+                          width: "80"
+                        slots:
+                          default:
+                            - component: Label
+                              config:
+                                text: '=(items[(props.item_upcomingEvent3 || (props.prefix + "_upcomingEvent3"))].state === "NULL" || items[(props.item_upcomingEvent3 || (props.prefix + "_upcomingEvent3"))].state === "UNDEF") ? "": items[(props.item_upcomingEvent3 || (props.prefix + "_upcomingEvent3"))].state'
+                                style:
+                                  font-weight: 600
+                                  font-size: 14px
+                            - component: Label
+                              config:
+                                text: '=dayjs(items[(props.item_nextEvent3Start || (props.prefix + "_nextEvent3Start"))].state).format("HH:mm") + " - " + dayjs(items[(props.item_nextEvent3End || (props.prefix + "_nextEvent3End"))].state).format("HH:mm")'
+                                style:
+                                  font-size: 12px
+                                  color: gray
+                - component: f7-row
+                  config:
+                    class: align-items-center
+                    visible: '=items[(props.item_heatingRelay || (props.prefix + "_heatingRelay"))].state === "ON"'
+                    style:
+                      margin-top: 15px
+                      padding-top: 10px
+                      border-top: 1px solid rgba(0, 0, 0, 0.1)
+                  slots:
+                    default:
+                      - component: f7-col
+                        config:
+                          width: "25"
+                        slots:
+                          default:
+                            - component: f7-icon
+                              config:
+                                f7: flame_fill
+                                color: green
+                                size: 24
+                                class: text-align-center
+                                style:
+                                  width: 100%
+                      - component: f7-col
+                        config:
+                          width: "75"
+                        slots:
+                          default:
+                            - component: Label
+                              config:
+                                text: '=(items[(props.item_Manual_Override_Until || (props.prefix + "_Manual_Override_Until"))].state !== "NULL" && items[(props.item_Manual_Override_Until || (props.prefix + "_Manual_Override_Until"))].state !== "UNDEF" && dayjs().isBefore(dayjs(items[(props.item_Manual_Override_Until || (props.prefix + "_Manual_Override_Until"))].state))) ? ("Manueller Handbetrieb " + props.title + " (Heizung aktiv)") : ((items[(props.item_nextEventStart || (props.prefix + "_nextEventStart"))].state !== "NULL" && items[(props.item_nextEventStart || (props.prefix + "_nextEventStart"))].state !== "UNDEF" && dayjs().isBefore(dayjs(items[(props.item_nextEventStart || (props.prefix + "_nextEventStart"))].state))) ? ("Vorheizen für: " + items[(props.item_upcomingEvent1 || (props.prefix + "_upcomingEvent1"))].state) : ("Aktive Heizphase: " + items[(props.item_upcomingEvent1 || (props.prefix + "_upcomingEvent1"))].state))'
+                                style:
+                                  font-size: 14px
+                                  color: green
+                                  font-weight: 600
+                            - component: Label
+                              config:
+                                text: '="(eingeschaltet seit " + ((items[(props.item_actualHeatingStart || (props.prefix + "_actualHeatingStart"))].state === "NULL" || items[(props.item_actualHeatingStart || (props.prefix + "_actualHeatingStart"))].state === "UNDEF") ? "?": dayjs(items[(props.item_actualHeatingStart || (props.prefix + "_actualHeatingStart"))].state).format("HH:mm")) + " Uhr)"'
+                                style:
+                                  font-size: 12px
+                                  color: green
+                - component: f7-row
+                  config:
+                    class: align-items-center
+                    visible: '=(items[(props.item_heatingStart || (props.prefix + "_heatingStart"))].state !== "NULL" && items[(props.item_heatingStart || (props.prefix + "_heatingStart"))].state !== "UNDEF" && items[(props.item_heatingStart || (props.prefix + "_heatingStart"))].state !== "-" && items[(props.item_heatingRelay || (props.prefix + "_heatingRelay"))].state !== "ON")'
+                    style:
+                      margin-top: 15px
+                      padding-top: 10px
+                      border-top: 1px solid rgba(0, 0, 0, 0.1)
+                  slots:
+                    default:
+                      - component: f7-col
+                        config:
+                          width: "25"
+                        slots:
+                          default:
+                            - component: f7-icon
+                              config:
+                                f7: flame
+                                color: red
+                                size: 24
+                                class: text-align-center
+                                style:
+                                  width: 100%
+                      - component: f7-col
+                        config:
+                          width: "75"
+                        slots:
+                          default:
+                            - component: Label
+                              config:
+                                text: '="Nächste Heizphase: Startet am " + dayjs(items[(props.item_heatingStart || (props.prefix + "_heatingStart"))].state).format("DD.MM.") + " um " + dayjs(items[(props.item_heatingStart || (props.prefix + "_heatingStart"))].state).format("HH:mm") + " Uhr"'
+                                style:
+                                  font-size: 14px
+                                  color: red
+                                  font-weight: 600
+
+    - component: f7-card
+      config:
+        style:
+          border-radius: 12px
+          margin: 0
+      slots:
+        default:
+          - component: f7-list
+            config:
+              mediaList: true
+            slots:
+              default:
+                - component: oh-list-item
+                  config:
+                    title: '="Heizprogramm " + props.title'
+                    after: '=items[(props.item_heatingEnabled || (props.prefix + "_heatingEnabled"))].state == "ON" ? "An": "Aus"'
+                    icon: f7:arrow_merge
+                    iconColor: blue
+                    action: options
+                    actionItem: =(props.item_heatingEnabled || (props.prefix + "_heatingEnabled"))
+                    actionOptions: ON=An,OFF=Aus
+                - component: oh-list-item
+                  config:
+                    title: ="CT-Heizprogramm Status " + props.title
+                    after: '=items[(props.item_heatingRelay || (props.prefix + "_heatingRelay"))].state == "ON" ? "Heizung Aktiv (Ein)": "Heizung inaktiv (Aus)"'
+                    icon: f7:thermometer
+                    iconColor: blue
+                - component: oh-slider-item
+                  config:
+                    title: ="Soll-Temperatur Vorlaufberechnung " + props.title
+                    item: =(props.item_targetTemperature || (props.prefix + "_targetTemperature"))
+                    icon: f7:arrow_right_square
+                    iconColor: blue
+                    min: 5
+                    max: 30
+                    step: 0.5
+                    scale: false
+                    label: true
+                - component: oh-slider-item
+                  config:
+                    title: ="Soll-Temperatur Aktorregler " + props.title
+                    item: =props.knxTargetTempItem
+                    icon: f7:thermometer
+                    iconColor: orange
+                    min: 10
+                    max: 30
+                    step: 0.5
+                    scale: false
+                    label: true
+                  visible: =props.knxTargetTempItem !== undefined && props.knxTargetTempItem !== ""
+                - component: oh-list-item
+                  config:
+                    title: ="Ist-Temperatur " + props.title
+                    after: '=((items[(props.item_currentTemperature || (props.prefix + "_currentTemperature"))].state === "NULL" || items[(props.item_currentTemperature || (props.prefix + "_currentTemperature"))].state === "UNDEF") ? "-": (items[(props.item_currentTemperature || (props.prefix + "_currentTemperature"))].displayState || items[(props.item_currentTemperature || (props.prefix + "_currentTemperature"))].state))'
+                    icon: f7:thermometer
+                    iconColor: blue
+                - component: oh-list-item
+                  config:
+                    title: Ventil Status
+                    after: '=props.valveItem ? (items[props.valveItem].state === "OPEN" ? "Offen": items[props.valveItem].state === "CLOSED" ? "Zu": items[props.valveItem].state === "ON" ? "Offen": items[props.valveItem].state === "OFF" ? "Zu": (items[props.valveItem].displayState || items[props.valveItem].state)) : "-"'
+                    icon: f7:link
+                    iconColor: blue
+                - component: oh-list-item
+                  config:
+                    title: Ventil Öffnung
+                    after: '=props.valveOpeningItem ? (items[props.valveOpeningItem].displayState || (items[props.valveOpeningItem].state + " %")) : "-"'
+                    icon: f7:drop
+                    iconColor: blue
+                - component: oh-list-item
+                  config:
+                    title: HVAC Status
+                    after: '=Number(items[(props.item_HVAC_Mode || (props.prefix + "_HVAC_Mode"))].state) === 1 ? "Komfort": Number(items[(props.item_HVAC_Mode || (props.prefix + "_HVAC_Mode"))].state) === 2 ? "Standby": Number(items[(props.item_HVAC_Mode || (props.prefix + "_HVAC_Mode"))].state) === 3 ? "Nacht": Number(items[(props.item_HVAC_Mode || (props.prefix + "_HVAC_Mode"))].state) === 4 ? "Frost": (items[(props.item_HVAC_Mode || (props.prefix + "_HVAC_Mode"))].displayState || items[(props.item_HVAC_Mode || (props.prefix + "_HVAC_Mode"))].state)'
+                    icon: f7:dial
+                    iconColor: blue
+                - component: f7-list-item
+                  config:
+                    footer: "Hinweis: Eine manuelle Auswahl pausiert das Automatik-Programm für einige Stunden (Handbetrieb)."
+                  slots:
+                    default:
+                      - component: f7-segmented
+                        config:
+                          style:
+                            width: 100%
+                        slots:
+                          default:
+                            - component: oh-button
+                              config:
+                                text: Komfort
+                                action: command
+                                actionItem: =(props.item_HVAC_Mode || (props.prefix + "_HVAC_Mode"))
+                                actionCommand: 1
+                                fill: '=Number(items[(props.item_HVAC_Mode || (props.prefix + "_HVAC_Mode"))].state) === 1'
+                            - component: oh-button
+                              config:
+                                text: Standby
+                                action: command
+                                actionItem: =(props.item_HVAC_Mode || (props.prefix + "_HVAC_Mode"))
+                                actionCommand: 2
+                                fill: '=Number(items[(props.item_HVAC_Mode || (props.prefix + "_HVAC_Mode"))].state) === 2'
+                            - component: oh-button
+                              config:
+                                text: Nacht
+                                action: command
+                                actionItem: =(props.item_HVAC_Mode || (props.prefix + "_HVAC_Mode"))
+                                actionCommand: 3
+                                fill: '=Number(items[(props.item_HVAC_Mode || (props.prefix + "_HVAC_Mode"))].state) === 3'
+                            - component: oh-button
+                              config:
+                                text: Frost
+                                action: command
+                                actionItem: =(props.item_HVAC_Mode || (props.prefix + "_HVAC_Mode"))
+                                actionCommand: 4
+                                fill: '=Number(items[(props.item_HVAC_Mode || (props.prefix + "_HVAC_Mode"))].state) === 4'

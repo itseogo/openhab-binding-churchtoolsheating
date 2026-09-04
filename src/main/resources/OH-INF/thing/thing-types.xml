@@ -1,0 +1,285 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<thing:thing-descriptions bindingId="churchtoolsheating"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:thing="https://openhab.org/schemas/thing-description/v1.0.0"
+    xsi:schemaLocation="https://openhab.org/schemas/thing-description/v1.0.0 https://openhab.org/schemas/thing-description-1.0.0.xsd">
+
+    <!-- Bridge: ChurchTools API -->
+    <bridge-type id="api">
+        <label>ChurchTools API Bridge</label>
+        <description>Verbindung zur ChurchTools Instanz</description>
+        <config-description>
+            <parameter name="url" type="text" required="true">
+                <label>ChurchTools URL</label>
+                <description>Beispiel: https://meinegemeinde.church.tools</description>
+            </parameter>
+            <parameter name="token" type="text" required="true">
+                <label>API Token</label>
+                <description>Login-Token eines Benutzers mit Leserechten auf Ressourcen/Kalender</description>
+            </parameter>
+            <parameter name="refreshInterval" type="integer">
+                <label>Aktualisierungsintervall (Minuten)</label>
+                <description>Wie oft sollen Termine neu geladen werden?</description>
+                <default>15</default>
+            </parameter>
+            <parameter name="roomResourceTypeId" type="integer">
+                <label>Resource-Type ID für Räume</label>
+                <description>Gibt an, welche ID "Räume" in ChurchTools haben (meistens 2). Leer lassen um alle anzuzeigen.</description>
+                <default>2</default>
+            </parameter>
+        </config-description>
+    </bridge-type>
+
+    <!-- Thing: Room Heater -->
+    <thing-type id="roomHeater">
+        <supported-bridge-type-refs>
+            <bridge-type-ref id="api" />
+        </supported-bridge-type-refs>
+        <label>ChurchTools Raumheizung</label>
+        <description>Steuert einen Raum basierend auf CT-Buchungen</description>
+        <channels>
+            <channel id="currentTemperature" typeId="temperature">
+                <label>currentTemperature</label>
+                <description>Die aktuell gemessene Temperatur im Raum</description>
+            </channel>
+            <channel id="targetTemperature" typeId="temperature">
+                <label>targetTemperature</label>
+                <description>Die gewünschte Ziel-Temperatur (Sollwert)</description>
+            </channel>
+            <channel id="heatingRelay" typeId="relay">
+                <label>heatingRelay</label>
+                <description>Schaltet die Heizung für diesen Raum EIN oder AUS</description>
+            </channel>
+            <channel id="nextEventStart" typeId="datetime">
+                <label>nextEventStart</label>
+                <description>Wann beginnt die nächste Buchung für diesen Raum?</description>
+            </channel>
+            <channel id="nextEventEnd" typeId="datetime">
+                <label>nextEventEnd</label>
+                <description>Wann endet die nächste Buchung für diesen Raum?</description>
+            </channel>
+            <channel id="heatingStart" typeId="datetime">
+                <label>heatingStart</label>
+                <description>Zeitpunkt, an dem die Heizung (inklusive Vorlauf) eingeschaltet wird</description>
+            </channel>
+            <channel id="actualHeatingStart" typeId="datetime">
+                <label>actualHeatingStart</label>
+                <description>Tatsächlicher Zeitpunkt, an dem das Relais auf ON geschaltet wurde</description>
+            </channel>
+            <channel id="hvacMode" typeId="number">
+                <label>HVAC Mode</label>
+                <description>Bidirektionaler Channel für den aktuellen KNX HVAC-Modus (1=Komfort, 2=Standby, 3=Nacht, 4=Frost)</description>
+            </channel>
+            <channel id="actuatorTargetTemp" typeId="temperature">
+                <label>Aktuelle Aktor Soll-Temperatur</label>
+                <description>Die Temperatur, die der Aktor JETZT haben soll (wechselt zwischen Vorlauf-Soll und Ausschalt-Soll).</description>
+            </channel>
+            <channel id="manualOverrideUntil" typeId="datetime">
+                <label>Manual Override Until</label>
+                <description>Zeitpunkt, bis wann die Automatik wegen manuellem KNX-Eingriff pausiert</description>
+            </channel>
+            <channel id="heatingEnabled" typeId="switch">
+                <label>heatingEnabled</label>
+                <description>Schalter zum kompletten Deaktivieren der Heizautomatik</description>
+            </channel>
+            <channel id="summerMode" typeId="mode">
+                <label>summerMode</label>
+                <description>Ist der Sommerbetrieb aktiv? (Kein Heizen)</description>
+            </channel>
+            <channel id="upcomingEvent1" typeId="upcomingEvent1" />
+            <channel id="upcomingEvent2" typeId="upcomingEvent2" />
+            <channel id="upcomingEvent3" typeId="upcomingEvent3" />
+            <channel id="nextEvent2Start" typeId="datetime">
+                <label>nextEvent2Start</label>
+                <description>Startzeit des 2. anstehenden Termins</description>
+            </channel>
+            <channel id="nextEvent2End" typeId="datetime">
+                <label>nextEvent2End</label>
+                <description>Endzeit des 2. anstehenden Termins</description>
+            </channel>
+            <channel id="nextEvent3Start" typeId="datetime">
+                <label>nextEvent3Start</label>
+                <description>Startzeit des 3. anstehenden Termins</description>
+            </channel>
+            <channel id="nextEvent3End" typeId="datetime">
+                <label>nextEvent3End</label>
+                <description>Endzeit des 3. anstehenden Termins</description>
+            </channel>
+        </channels>
+        <config-description>
+            <parameter name="resourceId" type="integer" required="true">
+                <label>Ressourcen-ID</label>
+                <description>Die ID der Ressource (Raum) in ChurchTools</description>
+            </parameter>
+            
+            <parameter name="onlyConfirmedBookings" type="boolean">
+                <label>Nur bestätigte Termine</label>
+                <description>Wenn aktiviert (Standard), werden nur Termine mit Status 'Bestätigt' zum Heizen genutzt. Unbestätigte oder angefragte Termine werden ignoriert.</description>
+                <default>true</default>
+            </parameter>
+            
+            <parameter name="enableMaxDurationFilter" type="boolean">
+                <label>Lange Termine ignorieren</label>
+                <description>Feature um zu verhindern, dass ein Raum tagelang geheizt wird, weil er versehentlich über Tage hinweg gebucht ist.</description>
+                <default>true</default>
+            </parameter>
+
+            <parameter name="maxEventDuration" type="integer">
+                <label>Maximale Termindauer (Stunden)</label>
+                <description>Termine, die länger als dieser Wert sind, werden für die Heizautomatik ignoriert (sofern die Filter-Funktion oben aktiv ist).</description>
+                <default>10</default>
+                <advanced>true</advanced>
+            </parameter>
+
+            <parameter name="enablePreheating" type="boolean">
+                <label>Vorlaufzeit-Berechnung aktivieren</label>
+                <description>Wenn deaktiviert, schaltet die Heizung erst exakt zum Beginn des Termins ein.</description>
+                <default>true</default>
+            </parameter>
+
+            <parameter name="enableExternalManualMode" type="boolean">
+                <label>KNX Handbetrieb erlauben</label>
+                <description>Aktiviert die Erkennung, ob der KNX Taster im Raum manuell umgeschaltet wurde, um die Automatik zu pausieren.</description>
+                <default>false</default>
+                <advanced>true</advanced>
+            </parameter>
+
+            <parameter name="externalManualModeDuration" type="integer">
+                <label>Dauer Handbetrieb (Stunden)</label>
+                <description>Wie lange die Heizautomatik pausiert, wenn extern am KNX Taster manuell geschaltet wurde.</description>
+                <default>6</default>
+                <advanced>true</advanced>
+            </parameter>
+
+            <parameter name="offHvacMode" type="integer">
+                <label>Modus zum Ausschalten</label>
+                <description>Welcher KNX HVAC-Modus (Zahl) soll gesendet werden, um die Heizung auszuschalten? (Heizen sendet immer 1 = Komfort)</description>
+                <options>
+                    <option value="3">Nacht (3)</option>
+                    <option value="4">Frost (4)</option>
+                    <option value="2">Standby (2)</option>
+                </options>
+                <default>3</default>
+                <advanced>true</advanced>
+            </parameter>
+
+            <parameter name="offTemperature" type="decimal" min="5" max="30" step="0.5">
+                <label>Temperatur zum Ausschalten (°C)</label>
+                <description>Die Soll-Temperatur, die an das neue 'Aktuelle Aktor Soll-Temperatur' Item gesendet wird, wenn kein Termin aktiv ist (z.B. für KNX Aktoren mit absoluter Sollwertvorgabe).</description>
+                <default>17.0</default>
+                <advanced>true</advanced>
+            </parameter>
+
+            <parameter name="deltaT1" type="decimal" min="0" max="15" step="0.5">
+                <label>Delta T1 (°C)</label>
+                <description>Punkt 1: Wenn die Temperaturdifferenz (Soll - Ist) kleiner/gleich diesem Wert ist, gilt exakt Vorlauf T1.</description>
+                <default>0.5</default>
+                <advanced>true</advanced>
+            </parameter>
+            <parameter name="deltaT2" type="decimal" min="0" max="15" step="0.5">
+                <label>Delta T2 (°C)</label>
+                <description>Punkt 2: Zwischen T1 und T2 wird die Vorlaufzeit stufenlos interpoliert.</description>
+                <default>1.0</default>
+                <advanced>true</advanced>
+            </parameter>
+            <parameter name="deltaT3" type="decimal" min="0" max="15" step="0.5">
+                <label>Delta T3 (°C)</label>
+                <description>Punkt 3: Zwischen T2 und T3 wird die Vorlaufzeit stufenlos interpoliert.</description>
+                <default>2.0</default>
+                <advanced>true</advanced>
+            </parameter>
+            <parameter name="deltaT4" type="decimal" min="0" max="15" step="0.5">
+                <label>Delta T4 (°C)</label>
+                <description>Punkt 4: Ab dieser Temperaturdifferenz oder mehr gilt dauerhaft Vorlauf T4 (Maximum).</description>
+                <default>4.0</default>
+                <advanced>true</advanced>
+            </parameter>
+
+            <parameter name="vorlauf1" type="decimal" min="0" max="24" step="0.5">
+                <label>Vorlauf T1 (Stunden)</label>
+                <description>Heizdauer in Stunden für Punkt 1 (Delta T1).</description>
+                <default>1.0</default>
+                <advanced>true</advanced>
+            </parameter>
+            <parameter name="vorlauf2" type="decimal" min="0" max="24" step="0.5">
+                <label>Vorlauf T2 (Stunden)</label>
+                <description>Heizdauer in Stunden für Punkt 2 (Delta T2).</description>
+                <default>2.5</default>
+                <advanced>true</advanced>
+            </parameter>
+            <parameter name="vorlauf3" type="decimal" min="0" max="24" step="0.5">
+                <label>Vorlauf T3 (Stunden)</label>
+                <description>Heizdauer in Stunden für Punkt 3 (Delta T3).</description>
+                <default>5.0</default>
+                <advanced>true</advanced>
+            </parameter>
+            <parameter name="vorlauf4" type="decimal" min="0" max="24" step="0.5">
+                <label>Vorlauf T4 (Stunden)</label>
+                <description>Heizdauer in Stunden für Punkt 4 (Delta T4). Maximaler Vorlauf.</description>
+                <default>8.0</default>
+                <advanced>true</advanced>
+            </parameter>
+        </config-description>
+    </thing-type>
+
+    <!-- Channel Types -->
+    <channel-type id="temperature">
+        <item-type>Number:Temperature</item-type>
+        <label>Temperatur</label>
+        <description>Aktuelle bzw. Ziel-Temperatur in °C</description>
+        <state readOnly="false" pattern="%.1f %unit%" />
+    </channel-type>
+
+    <channel-type id="relay">
+        <item-type>Switch</item-type>
+        <label>Heizungs-Relais</label>
+        <description>Schaltet die Heizung EIN oder AUS</description>
+    </channel-type>
+
+    <channel-type id="datetime">
+        <item-type>DateTime</item-type>
+        <label>Zeitpunkt</label>
+        <description>Ein Zeitpunkt (Beginn, Ende, Vorlauf)</description>
+        <state readOnly="true" />
+    </channel-type>
+    
+    <channel-type id="mode">
+        <item-type>Switch</item-type>
+        <label>Sommerbetrieb</label>
+        <description>Ist der Sommerbetrieb für diesen Raum aktiv?</description>
+    </channel-type>
+
+    <channel-type id="switch">
+        <item-type>Switch</item-type>
+        <label>Schalter</label>
+        <description>Ein allgemeiner Schalter (AN/AUS)</description>
+    </channel-type>
+
+    <channel-type id="number">
+        <item-type>Number</item-type>
+        <label>Zahl</label>
+        <description>Ein generischer Zahlenwert</description>
+    </channel-type>
+
+    <channel-type id="upcomingEvent1">
+        <item-type>String</item-type>
+        <label>upcomingEvent1</label>
+        <description>Der nächste anstehende Termin für diesen Raum</description>
+        <state readOnly="true" />
+    </channel-type>
+
+    <channel-type id="upcomingEvent2">
+        <item-type>String</item-type>
+        <label>upcomingEvent2</label>
+        <description>Der übernächste anstehende Termin für diesen Raum</description>
+        <state readOnly="true" />
+    </channel-type>
+
+    <channel-type id="upcomingEvent3">
+        <item-type>String</item-type>
+        <label>upcomingEvent3</label>
+        <description>Der dritte anstehende Termin für diesen Raum</description>
+        <state readOnly="true" />
+    </channel-type>
+
+</thing:thing-descriptions>

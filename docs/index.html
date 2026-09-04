@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChurchTools Heating Binding - openHAB</title>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            color: #333;
+            line-height: 1.6;
+            background-color: #fff;
+        }
+        
+        /* openHAB Navbar */
+        .navbar {
+            background-color: #212121;
+            color: #ccc;
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
+            height: 60px;
+            border-bottom: 4px solid #e64a19;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .navbar .logo {
+            font-size: 22px;
+            font-weight: 700;
+            margin-right: 30px;
+            color: #fff;
+            display: flex;
+            align-items: center;
+        }
+        .navbar .logo span {
+            color: #e64a19;
+        }
+        .navbar .breadcrumbs {
+            font-size: 14px;
+        }
+        .navbar .breadcrumbs a {
+            color: #ccc;
+            text-decoration: none;
+            margin: 0 5px;
+        }
+        .navbar .breadcrumbs a:hover {
+            color: #fff;
+        }
+
+        /* Layout */
+        .container {
+            display: flex;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        /* Right Sidebar (TOC) */
+        .sidebar {
+            width: 250px;
+            padding: 40px 20px;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            box-sizing: border-box;
+            border-left: 1px solid #eaeaea;
+            order: 2; /* Move to the right */
+        }
+        .sidebar h4 {
+            margin-top: 0;
+            font-size: 12px;
+            text-transform: uppercase;
+            color: #777;
+            letter-spacing: 1px;
+        }
+        .sidebar ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            font-size: 14px;
+        }
+        .sidebar li {
+            margin-bottom: 8px;
+        }
+        .sidebar a {
+            text-decoration: none;
+            color: #666;
+        }
+        .sidebar a:hover {
+            color: #e64a19;
+        }
+
+        /* Main Content */
+        .content {
+            flex: 1;
+            padding: 40px 60px;
+            max-width: 800px;
+            order: 1;
+        }
+
+        /* Typography matching openHAB docs */
+        h1 {
+            font-size: 36px;
+            font-weight: 400;
+            margin-top: 0;
+            margin-bottom: 30px;
+            color: #212121;
+        }
+        h2 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-top: 50px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eaeaea;
+            color: #212121;
+        }
+        h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-top: 30px;
+            color: #212121;
+        }
+        p {
+            margin-bottom: 16px;
+        }
+        a {
+            color: #e64a19;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+
+        /* Code Blocks */
+        code {
+            background: #f8f8f8;
+            padding: 2px 6px;
+            border: 1px solid #eaeaea;
+            border-radius: 4px;
+            font-family: Consolas, "Liberation Mono", Menlo, Courier, monospace;
+            font-size: 0.9em;
+            color: #d14;
+        }
+        pre {
+            background: #f8f8f8;
+            border: 1px solid #eaeaea;
+            padding: 16px;
+            border-radius: 4px;
+            overflow-x: auto;
+            line-height: 1.45;
+        }
+        pre code {
+            background: none;
+            border: none;
+            color: #333;
+            padding: 0;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        th, td {
+            border: 1px solid #dfe2e5;
+            padding: 10px 13px;
+            text-align: left;
+        }
+        th {
+            background-color: #f6f8fa;
+            font-weight: 600;
+        }
+        tr:nth-child(even) {
+            background-color: #fbfbfc;
+        }
+    </style>
+    <script type="module">
+      import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+      mermaid.initialize({ startOnLoad: true });
+    </script>
+</head>
+<body>
+
+    <!-- openHAB Header -->
+    <div class="navbar">
+        <div class="logo">open<span>HAB</span></div>
+        <div class="breadcrumbs">
+            <a href="#">Add-ons</a> / <a href="#">Bindings</a> / <a href="#">ChurchTools Heating</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Right TOC Sidebar -->
+        <div class="sidebar">
+            <h4>Table of Contents</h4>
+            <ul>
+                <li><a href="#pre-heating">Pre-Heating</a></li>
+                <li><a href="#manual-override">Manual Override</a></li>
+                <li><a href="#supported-things">Supported Things</a></li>
+                <li><a href="#discovery">Discovery</a></li>
+                <li><a href="#binding-configuration">Binding Configuration</a></li>
+                <li><a href="#bridge-configuration">Bridge Configuration</a></li>
+                <li><a href="#thing-configuration">Thing Configuration</a></li>
+                <li><a href="#channels">Channels</a></li>
+                <li><a href="#full-example">Full Example</a></li>
+            </ul>
+        </div>
+
+        <!-- Main Documentation Content -->
+        <div class="content">
+            <h1>ChurchTools Heating Binding</h1>
+            
+            <p>This binding integrates the <a href="https://church.tools/">ChurchTools</a> API to automatically control heating and HVAC systems in your building based on room bookings and calendars.</p>
+            <p>It allows you to map ChurchTools "Resources" (Rooms) to openHAB and calculates dynamic pre-heating times based on target temperatures and current temperatures.</p>
+
+            <h2 id="pre-heating">Pre-Heating Calculation (Vorlaufzeit)</h2>
+            <p>One of the core features of this binding is its intelligent pre-heating calculation. Instead of starting the heating exactly when an event begins, it calculates how long the room needs to heat up to reach the target temperature <em>before</em> the event starts.</p>
+            <p>It does this by calculating the temperature difference (<strong>Delta T</strong>) between the <code>targetTemperature</code> and the <code>currentTemperature</code>. You configure a heating curve using four interpolation points in the Thing configuration:</p>
+            <ul>
+                <li><code>deltaT1</code> &rarr; <code>vorlauf1</code> (e.g., 0.5 °C diff = 1.0 hours of heating)</li>
+                <li><code>deltaT2</code> &rarr; <code>vorlauf2</code> (e.g., 1.0 °C diff = 2.5 hours of heating)</li>
+                <li><code>deltaT3</code> &rarr; <code>vorlauf3</code></li>
+                <li><code>deltaT4</code> &rarr; <code>vorlauf4</code></li>
+            </ul>
+            <p>If the current temperature difference falls between two points (e.g., 1.5 °C), the binding automatically interpolates the required time and turns on the <code>heatingRelay</code> / sets the <code>hvacMode</code> accordingly prior to the event.</p>
+
+            <div style="background-color: #ffeef0; border-left: 4px solid #cb2431; padding: 15px; margin: 20px 0; border-radius: 4px;">
+                <h4 style="margin-top: 0; color: #cb2431;">⚠️ Configuration Required</h4>
+                <p style="margin-bottom: 0;">Because every room has different heating systems, sizes, and insulation, there is no "one size fits all" curve. Therefore, to actually use the pre-heating feature, you <strong>MUST</strong> configure the 4 points (<code>deltaT1-4</code> and <code>vorlauf1-4</code>) in the Thing configuration for <em>each individual room</em>. If you leave these fields empty, the binding defaults to 0 hours, meaning the heating will start exactly when the event begins.</p>
+            </div>
+
+            <h3>Example Heating Curve (Underfloor Heating / Fußbodenheizung)</h3>
+            <p>Underfloor heating systems are notoriously slow. A typical configuration for a well-insulated building might look like this:</p>
+            <ul>
+                <li><strong>Punkt 1:</strong> <code>deltaT1 = 0.5</code> °C &rarr; <code>vorlauf1 = 2.0</code> h <em>(Only slightly cold, needs 2 hours to warm up)</em></li>
+                <li><strong>Punkt 2:</strong> <code>deltaT2 = 1.0</code> °C &rarr; <code>vorlauf2 = 4.0</code> h <em>(1 degree cold, needs 4 hours)</em></li>
+                <li><strong>Punkt 3:</strong> <code>deltaT3 = 2.0</code> °C &rarr; <code>vorlauf3 = 7.0</code> h <em>(2 degrees cold, needs 7 hours)</em></li>
+                <li><strong>Punkt 4:</strong> <code>deltaT4 = 3.0</code> °C &rarr; <code>vorlauf4 = 10.0</code> h <em>(3 degrees cold, needs a massive 10 hours)</em></li>
+            </ul>
+
+            <img src="images/heating_curve.svg" alt="Heating Curve" style="max-width: 100%; height: auto; border: 1px solid #dfe2e5; border-radius: 6px; padding: 10px; margin: 20px 0;">
+
+            <p><em>Note: You may want to configure <code>maxEventDuration</code> or check ChurchTools limitations if you have extremely long pre-heat times.</em></p>
+
+            <h2 id="manual-override">Manual Override (Handbetrieb)</h2>
+            <p>If a user manually changes the physical KNX thermostat on the wall (or via a UI widget), the binding can detect this and temporarily suspend the automatic heating schedule.</p>
+            <p>To use this feature, you must enable <code>enableExternalManualMode</code> in the Thing configuration. When enabled, any deviation from the binding's expected HVAC mode will trigger the <strong>Manual Override</strong>. The automation will be paused for a configurable duration (<code>externalManualModeDuration</code>, default 6 hours).</p>
+            <p><strong>Resetting the Override:</strong><br>
+            The manual override is automatically cleared when:</p>
+            <ol>
+                <li>The <code>externalManualModeDuration</code> expires.</li>
+                <li>A completely <strong>new</strong> heating phase (a new event in ChurchTools) starts.</li>
+                <li>The user toggles the <code>heatingEnabled</code> switch OFF and ON again.</li>
+            </ol>
+
+            <h2 id="event-filtering">Event Filtering (Sicherheit & Filter)</h2>
+            <p>To prevent the heating system from running unnecessarily or endlessly, the binding implements several built-in safety filters that can be configured in the Thing settings:</p>
+            <ul>
+                <li><strong>Confirmed Bookings Only (<code>onlyConfirmedBookings</code>):</strong> By default, the binding only looks at events in ChurchTools that have the status "Confirmed". Unconfirmed or rejected requests are completely ignored so the room stays cold.</li>
+                <li><strong>Maximum Event Duration (<code>enableMaxDurationFilter</code> / <code>maxEventDuration</code>):</strong> A common mistake in calendar systems is booking a room for "multiple days" instead of just a few hours. By default, any event longer than 10 hours is ignored to prevent the heating from running for days straight. You can adjust this limit or disable it entirely.</li>
+            </ul>
+
+            <h2 id="supported-things">Supported Things</h2>
+            <p>This binding supports the following thing types:</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Thing Type ID</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>api</code></td>
+                        <td>The Bridge to the ChurchTools API.</td>
+                    </tr>
+                    <tr>
+                        <td><code>roomHeater</code></td>
+                        <td>Represents a single room (Resource) that is heated automatically based on events.</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h2 id="discovery">Discovery</h2>
+            <p>Currently, there is no automatic discovery. You must configure the Bridge and Things manually.</p>
+
+            <h2 id="binding-configuration">Binding Configuration</h2>
+            <p>The binding itself does not require any special configuration at the binding level. All configuration is done on the Bridge (<code>api</code>) and Things (<code>roomHeater</code>).</p>
+
+            <h2 id="bridge-configuration">Bridge Configuration</h2>
+            <p>The <code>api</code> bridge requires the following configuration parameters:</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Parameter</th>
+                        <th>Type</th>
+                        <th>Required</th>
+                        <th>Default</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>url</code></td>
+                        <td>text</td>
+                        <td>Yes</td>
+                        <td></td>
+                        <td>The base URL of your ChurchTools instance (e.g., <code>https://mychurch.church.tools</code>).</td>
+                    </tr>
+                    <tr>
+                        <td><code>token</code></td>
+                        <td>text</td>
+                        <td>Yes</td>
+                        <td></td>
+                        <td>A login token of a user with read permissions for resources and calendars.</td>
+                    </tr>
+                    <tr>
+                        <td><code>refreshInterval</code></td>
+                        <td>integer</td>
+                        <td>No</td>
+                        <td>15</td>
+                        <td>How often (in minutes) the bookings should be fetched.</td>
+                    </tr>
+                    <tr>
+                        <td><code>roomResourceTypeId</code></td>
+                        <td>integer</td>
+                        <td>No</td>
+                        <td>2</td>
+                        <td>The ID of the Resource Type for "Rooms" in ChurchTools.</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h2 id="thing-configuration">Thing Configuration</h2>
+            <p>The <code>roomHeater</code> requires the <code>api</code> bridge and the following parameters:</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Parameter</th>
+                        <th>Type</th>
+                        <th>Required</th>
+                        <th>Default</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>resourceId</code></td>
+                        <td>integer</td>
+                        <td>Yes</td>
+                        <td></td>
+                        <td>The ID of the Resource (Room) in ChurchTools.</td>
+                    </tr>
+                    <tr>
+                        <td><code>onlyConfirmedBookings</code></td>
+                        <td>boolean</td>
+                        <td>No</td>
+                        <td>true</td>
+                        <td>If true, only bookings with status "Confirmed" are used for heating.</td>
+                    </tr>
+                    <tr>
+                        <td><code>enableMaxDurationFilter</code></td>
+                        <td>boolean</td>
+                        <td>No</td>
+                        <td>true</td>
+                        <td>Prevents infinite heating if an event is accidentally booked for days.</td>
+                    </tr>
+                    <tr>
+                        <td><code>maxEventDuration</code></td>
+                        <td>integer</td>
+                        <td>No</td>
+                        <td>10</td>
+                        <td>Max duration of an event (in hours) to be considered for heating.</td>
+                    </tr>
+                    <tr>
+                        <td><code>enablePreheating</code></td>
+                        <td>boolean</td>
+                        <td>No</td>
+                        <td>true</td>
+                        <td>If disabled, heating starts exactly at event start time without pre-heat calculation.</td>
+                    </tr>
+                    <tr>
+                        <td><code>enableExternalManualMode</code></td>
+                        <td>boolean</td>
+                        <td>No</td>
+                        <td>false</td>
+                        <td>Detects manual override on physical KNX thermostats and pauses automation.</td>
+                    </tr>
+                    <tr>
+                        <td><code>externalManualModeDuration</code></td>
+                        <td>integer</td>
+                        <td>No</td>
+                        <td>6</td>
+                        <td>How long (in hours) the automation pauses on manual override.</td>
+                    </tr>
+                    <tr>
+                        <td><code>offHvacMode</code></td>
+                        <td>integer</td>
+                        <td>No</td>
+                        <td>3</td>
+                        <td>KNX HVAC Mode to send when turning off (1=Comfort, 2=Standby, 3=Night, 4=Frost).</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h2 id="channels">Channels</h2>
+            <p>The <code>roomHeater</code> thing provides the following channels:</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Channel Type ID</th>
+                        <th>Item Type</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>currentTemperature</code></td>
+                        <td>Number:Temperature</td>
+                        <td>The current temperature in the room (Input from e.g., KNX)</td>
+                    </tr>
+                    <tr>
+                        <td><code>targetTemperature</code></td>
+                        <td>Number:Temperature</td>
+                        <td>The desired target temperature (Used for pre-heat calculation)</td>
+                    </tr>
+                    <tr>
+                        <td><code>heatingRelay</code></td>
+                        <td>Switch</td>
+                        <td>The calculated state (ON/OFF) of the heating</td>
+                    </tr>
+                    <tr>
+                        <td><code>hvacMode</code></td>
+                        <td>Number</td>
+                        <td>The calculated KNX HVAC mode (1=Comfort, 2=Standby, 3=Night, 4=Frost)</td>
+                    </tr>
+                    <tr>
+                        <td><code>nextEventStart</code></td>
+                        <td>DateTime</td>
+                        <td>Start time of the next upcoming event</td>
+                    </tr>
+                    <tr>
+                        <td><code>heatingStart</code></td>
+                        <td>DateTime</td>
+                        <td>Calculated time when the heating will switch to ON (including pre-heat)</td>
+                    </tr>
+                    <tr>
+                        <td><code>heatingEnabled</code></td>
+                        <td>Switch</td>
+                        <td>Master switch to enable/disable the automation for this room</td>
+                    </tr>
+                    <tr>
+                        <td><code>summerMode</code></td>
+                        <td>Switch</td>
+                        <td>Global switch to disable heating for all rooms (ignores events)</td>
+                    </tr>
+                    <tr>
+                        <td><code>upcomingEvent1</code></td>
+                        <td>String</td>
+                        <td>Name of the next upcoming event</td>
+                    </tr>
+                    <tr>
+                        <td><code>manualOverrideUntil</code></td>
+                        <td>DateTime</td>
+                        <td>Shows until when the automation is paused due to manual intervention</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h2 id="full-example">Full Example</h2>
+
+            <h3><code>churchtools.things</code></h3>
+<pre><code>Bridge churchtoolsheating:api:mychurch "ChurchTools API" [ url="https://mychurch.church.tools", token="YOUR_TOKEN", refreshInterval=15 ] {
+    Thing roomHeater saal "Saal Heizung" [ resourceId=12, onlyConfirmedBookings=true, offHvacMode=3 ]
+}</code></pre>
+
+            <h3><code>churchtools.items</code></h3>
+<pre><code>// Bridge/Global Items
+Switch Global_summerMode "Sommerbetrieb"
+
+// Room Items (Saal)
+Number:Temperature Raum_Saal_currentTemperature "Ist-Temperatur [%.1f °C]" { channel="churchtoolsheating:roomHeater:mychurch:saal:currentTemperature", channel="knx:device:bridge:saal:currentTemp" }
+Number:Temperature Raum_Saal_targetTemperature "Soll-Temperatur Vorlauf [%.1f °C]" { channel="churchtoolsheating:roomHeater:mychurch:saal:targetTemperature" }
+
+Switch Raum_Saal_heatingRelay "Heizungsrelais (Heizphase aktiv)" { channel="churchtoolsheating:roomHeater:mychurch:saal:heatingRelay" }
+Number Raum_Saal_hvacMode "HVAC Modus" { channel="churchtoolsheating:roomHeater:mychurch:saal:hvacMode", channel="knx:device:bridge:saal:hvacMode" }
+Number:Temperature Raum_Saal_actuatorTargetTemp "Aktuelle Aktor-Soll-Temperatur [%.1f °C]" { channel="churchtoolsheating:roomHeater:mychurch:saal:actuatorTargetTemp" }
+
+Switch Raum_Saal_heatingEnabled "Heizautomatik An/Aus" { channel="churchtoolsheating:roomHeater:mychurch:saal:heatingEnabled" }
+Switch Raum_Saal_summerMode "Sommerbetrieb Saal" { channel="churchtoolsheating:roomHeater:mychurch:saal:summerMode" }
+DateTime Raum_Saal_manualOverrideUntil "Handbetrieb Pause bis [%1$tH:%1$tM]" { channel="churchtoolsheating:roomHeater:mychurch:saal:manualOverrideUntil" }
+
+DateTime Raum_Saal_nextEventStart "Nächster Termin Start [%1$td.%1$tm. %1$tH:%1$tM]" { channel="churchtoolsheating:roomHeater:mychurch:saal:nextEventStart" }
+DateTime Raum_Saal_nextEventEnd "Nächster Termin Ende [%1$td.%1$tm. %1$tH:%1$tM]" { channel="churchtoolsheating:roomHeater:mychurch:saal:nextEventEnd" }
+DateTime Raum_Saal_heatingStart "Geplanter Heizbeginn [%1$td.%1$tm. %1$tH:%1$tM]" { channel="churchtoolsheating:roomHeater:mychurch:saal:heatingStart" }
+DateTime Raum_Saal_actualHeatingStart "Tatsächlicher Heizbeginn [%1$tH:%1$tM]" { channel="churchtoolsheating:roomHeater:mychurch:saal:actualHeatingStart" }
+String Raum_Saal_upcomingEvent1 "Nächster Termin: [%s]" { channel="churchtoolsheating:roomHeater:mychurch:saal:upcomingEvent1" }</code></pre>
+
+            <h3><code>churchtools.sitemap</code></h3>
+<pre><code>sitemap churchtools label="ChurchTools Heizung" {
+    Frame label="Globale Einstellungen" {
+        Switch item=Global_summerMode icon="sun"
+    }
+    
+    Frame label="Saal Heizung" {
+        Text item=Raum_Saal_upcomingEvent1
+        Text item=Raum_Saal_nextEventStart icon="calendar"
+        Text item=Raum_Saal_nextEventEnd icon="calendar"
+        
+        Text item=Raum_Saal_heatingStart icon="time"
+        Text item=Raum_Saal_actualHeatingStart icon="time" visibility=[Raum_Saal_actualHeatingStart!="UNDEF"]
+        
+        Text item=Raum_Saal_currentTemperature icon="temperature"
+        Setpoint item=Raum_Saal_targetTemperature icon="heating" minValue=15 maxValue=28 step=0.5
+        Text item=Raum_Saal_actuatorTargetTemp icon="temperature"
+        
+        Text item=Raum_Saal_heatingRelay icon="fire"
+        Selection item=Raum_Saal_hvacMode mappings=[1="Komfort", 2="Standby", 3="Nacht", 4="Frost"]
+        
+        Switch item=Raum_Saal_heatingEnabled icon="switch"
+        Text item=Raum_Saal_manualOverrideUntil icon="time" visibility=[Raum_Saal_manualOverrideUntil!="UNDEF"] valuecolor=["red"]
+        Switch item=Raum_Saal_summerMode icon="sun"
+    }
+}</code></pre>
+
+            <h3>Note on KNX Setpoints</h3>
+            <p>For a robust setup with smart KNX thermostats, it is highly recommended to link the <code>targetTemperature</code> channel ONLY to a virtual openHAB item. The binding uses this virtual item solely to calculate the pre-heat duration. The actual KNX actuator should be controlled exclusively via the <code>hvacMode</code> channel, relying on the actuator's internal base setpoint. Changing KNX setpoints dynamically via OpenHAB often causes the thermostat to immediately jump to Comfort mode, breaking the automation cycle.</p>
+        </div>
+    </div>
+</body>
+</html>

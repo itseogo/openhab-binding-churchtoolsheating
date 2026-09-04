@@ -1,0 +1,6 @@
+Bundle-SymbolicName: org.openhab.binding.churchtoolsheating
+Bundle-Version: 5.1.3.SNAPSHOT
+Export-Package: org.openhab.binding.churchtoolsheating.*
+Import-Package: *
+-dsannotations: *
+Provide-Capability: org.openhab.binding;name="churchtoolsheating"

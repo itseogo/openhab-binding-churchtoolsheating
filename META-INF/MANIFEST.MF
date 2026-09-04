@@ -1,0 +1,30 @@
+Manifest-Version: 1.0
+Created-By: 21.0.10 (Oracle Corporation)
+Build-Jdk-Spec: 21
+Bnd-LastModified: 1787697135828
+Bundle-ManifestVersion: 2
+Bundle-Name: openHAB Add-ons :: Bundles :: ChurchTools Heating Binding
+Bundle-SymbolicName: org.openhab.binding.churchtoolsheating
+Bundle-Version: 5.1.3.SNAPSHOT
+Export-Package: org.openhab.binding.churchtoolsheating.internal;version=
+ "5.1.3";uses:="org.openhab.core.config.discovery,org.openhab.core.thing
+ ,org.openhab.core.thing.binding,org.openhab.core.types"
+Import-Package: com.google.gson;version="[2.10,3)",java.io,java.lang,jav
+ a.lang.invoke,java.math,java.net,java.time,java.time.chrono,java.time.t
+ emporal,java.util,java.util.concurrent,org.openhab.binding.churchtoolsh
+ eating.internal;version="[5.1,6)",org.openhab.core.config.core;version=
+ "[5.1,6)",org.openhab.core.config.discovery;version="[5.1,6)",org.openh
+ ab.core.library.types;version="[5.1,6)",org.openhab.core.thing;version=
+ "[5.1,6)",org.openhab.core.thing.binding;version="[5.1,6)",org.openhab.
+ core.types;version="[5.1,6)",org.slf4j;version="[2.0,3)"
+Private-Package: OH-INF.thing
+Provide-Capability: osgi.service;objectClass:List<String>="org.openhab.c
+ ore.thing.binding.ThingHandlerFactory";uses:="org.openhab.core.thing.bi
+ nding"
+Require-Capability: osgi.extender;filter:="(&(osgi.extender=osgi.compone
+ nt)(version>=1.4.0)(!(version>=2.0.0)))",osgi.ee;filter:="(&(osgi.ee=Ja
+ vaSE)(version=17))"
+Service-Component: OSGI-INF/org.openhab.binding.churchtoolsheating.inter
+ nal.ChurchToolsHandlerFactory.xml
+Tool: Bnd-6.4.0.202211291949
+
