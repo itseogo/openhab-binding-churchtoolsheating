@@ -223,4 +223,4 @@ sitemap churchtools label="ChurchTools Heizung" {
 ### Note on KNX Setpoints
 For a robust setup with smart KNX thermostats, it is highly recommended to link the `targetTemperature` channel ONLY to a virtual openHAB item. The binding uses this virtual item solely to calculate the pre-heat duration. The actual KNX actuator should be controlled exclusively via the `hvacMode` channel, relying on the actuator's internal base setpoint. Changing KNX setpoints dynamically via OpenHAB often causes the thermostat to immediately jump to Comfort mode, breaking the automation cycle.
 
-(docs/images/ct_heatbindig_oh5.gif)
+![ct_binding_oh_Demo GIF](docs/images/ct_heatbindig_oh5.gif)
