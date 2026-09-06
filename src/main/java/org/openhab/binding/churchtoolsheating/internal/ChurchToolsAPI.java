@@ -33,7 +33,10 @@ public class ChurchToolsAPI {
             throw new RuntimeException("Failed : HTTP error code : " + conn.getResponseCode());
         }
 
-        JsonObject jsonResponse = JsonParser.parseReader(new InputStreamReader(conn.getInputStream())).getAsJsonObject();
+        JsonObject jsonResponse;
+        try (InputStreamReader reader = new InputStreamReader(conn.getInputStream())) {
+            jsonResponse = JsonParser.parseReader(reader).getAsJsonObject();
+        }
         JsonArray data = jsonResponse.getAsJsonArray("data");
         
         List<Resource> resources = new ArrayList<>();
@@ -72,7 +75,10 @@ public class ChurchToolsAPI {
             throw new RuntimeException("Failed to fetch bookings: HTTP error code : " + conn.getResponseCode());
         }
 
-        JsonObject jsonResponse = JsonParser.parseReader(new InputStreamReader(conn.getInputStream())).getAsJsonObject();
+        JsonObject jsonResponse;
+        try (InputStreamReader reader = new InputStreamReader(conn.getInputStream())) {
+            jsonResponse = JsonParser.parseReader(reader).getAsJsonObject();
+        }
         JsonArray data = jsonResponse.getAsJsonArray("data");
         
         List<Booking> bookings = new ArrayList<>();

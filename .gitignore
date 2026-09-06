@@ -1,6 +1,5 @@
 # Maven
 target/
-*.zip
 
 # IDEs
 .idea/
