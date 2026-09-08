@@ -1,4 +1,4 @@
-# ChurchTools Heating Binding
+# ChurchTools Heating Binding for Openhab 5.1
 
 This binding integrates the [ChurchTools](https://church.tools/) API to automatically control heating and HVAC systems in your building based on room bookings and calendars. 
 
