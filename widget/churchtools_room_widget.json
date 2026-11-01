@@ -152,7 +152,7 @@ props:
       name: item_upcomingEvent3
       required: false
       type: TEXT
-timestamp: Nov 1, 2026, 8:00:00 PM
+timestamp: Nov 1, 2026, 8:30:00 PM
 component: f7-block
 config:
   style:
@@ -170,7 +170,7 @@ slots:
           border-radius: 14px
           overflow: hidden
           margin: 0
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12)
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15)
       slots:
         default:
           - component: f7-card-content
@@ -191,7 +191,7 @@ slots:
                   config:
                     style:
                       padding: 12px 16px
-                      background: var(--f7-card-bg-color, #ffffff)
+                      background: transparent
                       display: flex
                       align-items: center
                       justify-content: space-between
@@ -214,13 +214,13 @@ slots:
                                 style:
                                   font-weight: 700
                                   font-size: 18px
-                                  color: var(--f7-text-color, #1c1c1e)
+                                  color: var(--f7-text-color)
                             - component: Label
                               config:
                                 text: '="Luftfeuchtigkeit: " + ((items[(props.item_Humidity || (props.prefix + "_Humidity"))].state === "NULL" || items[(props.item_Humidity || (props.prefix + "_Humidity"))].state === "UNDEF") ? "-": (items[(props.item_Humidity || (props.prefix + "_Humidity"))].displayState || items[(props.item_Humidity || (props.prefix + "_Humidity"))].state))'
                                 style:
                                   font-size: 12px
-                                  color: var(--f7-text-color-secondary, #8e8e93)
+                                  color: var(--f7-text-color-secondary)
                       - component: f7-badge
                         config:
                           style:
@@ -276,14 +276,14 @@ slots:
                         config:
                           text: ="Sommerbetrieb aktiv"
                           style:
-                            color: var(--f7-text-color, #004085)
+                            color: var(--f7-text-color)
                             font-weight: 700
                             font-size: 13px
                       - component: Label
                         config:
                           text: ="Heizungsautomatik ist vollständig pausiert"
                           style:
-                            color: var(--f7-text-color-secondary, #004085)
+                            color: var(--f7-text-color-secondary)
                             font-size: 11px
 
     # 3. Handbetrieb Hinweis-Banner
@@ -323,14 +323,14 @@ slots:
                         config:
                           text: ="Manueller Handbetrieb aktiv"
                           style:
-                            color: var(--f7-text-color, #664d03)
+                            color: var(--f7-text-color)
                             font-weight: 700
                             font-size: 13px
                       - component: Label
                         config:
                           text: '="Pausiert bis " + dayjs(items[(props.item_Manual_Override_Until || (props.prefix + "_Manual_Override_Until"))].state).format("HH:mm") + " Uhr (Reset: Automatik aus/an)"'
                           style:
-                            color: var(--f7-text-color-secondary, #664d03)
+                            color: var(--f7-text-color-secondary)
                             font-size: 11px
 
     # 4. Veranstaltungen & Heizstatus Card
@@ -339,7 +339,7 @@ slots:
         style:
           border-radius: 14px
           margin: 0
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1)
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12)
       slots:
         default:
           - component: f7-card-header
@@ -355,7 +355,7 @@ slots:
                     style:
                       font-size: 13px
                       font-weight: 600
-                      color: var(--f7-text-color-secondary, #8e8e93)
+                      color: var(--f7-text-color-secondary)
                       text-transform: uppercase
                       letter-spacing: 0.5px
           - component: f7-card-content
@@ -398,7 +398,7 @@ slots:
                                 text: '=(items[(props.item_nextEventStart || (props.prefix + "_nextEventStart"))].state === "NULL" || items[(props.item_nextEventStart || (props.prefix + "_nextEventStart"))].state === "UNDEF") ? "": dayjs(items[(props.item_nextEventStart || (props.prefix + "_nextEventStart"))].state).format("dd")'
                                 style:
                                   font-size: 11px
-                                  color: var(--f7-text-color-secondary, #8e8e93)
+                                  color: var(--f7-text-color-secondary)
                                   text-transform: uppercase
                                   font-weight: 600
                             - component: Label
@@ -408,7 +408,7 @@ slots:
                                   font-size: 20px
                                   font-weight: 700
                                   line-height: 1.1
-                                  color: var(--f7-text-color, #1c1c1e)
+                                  color: var(--f7-text-color)
                             - component: Label
                               config:
                                 text: '=(items[(props.item_nextEventStart || (props.prefix + "_nextEventStart"))].state === "NULL" || items[(props.item_nextEventStart || (props.prefix + "_nextEventStart"))].state === "UNDEF") ? "": dayjs(items[(props.item_nextEventStart || (props.prefix + "_nextEventStart"))].state).format("MMM").toUpperCase()'
@@ -431,7 +431,7 @@ slots:
                                 style:
                                   font-weight: 600
                                   font-size: 14px
-                                  color: var(--f7-text-color, #1c1c1e)
+                                  color: var(--f7-text-color)
                                   white-space: normal
                                   word-break: break-word
                             - component: Label
@@ -439,7 +439,7 @@ slots:
                                 text: '=(items[(props.item_nextEventStart || (props.prefix + "_nextEventStart"))].state === "NULL" || items[(props.item_nextEventStart || (props.prefix + "_nextEventStart"))].state === "UNDEF") ? "": dayjs(items[(props.item_nextEventStart || (props.prefix + "_nextEventStart"))].state).format("HH:mm") + " - " + dayjs(items[(props.item_nextEventEnd || (props.prefix + "_nextEventEnd"))].state).format("HH:mm") + " Uhr"'
                                 style:
                                   font-size: 12px
-                                  color: var(--f7-text-color-secondary, #8e8e93)
+                                  color: var(--f7-text-color-secondary)
                                   margin-top: 2px
 
                 # Termin 2
@@ -475,7 +475,7 @@ slots:
                                 text: '=dayjs(items[(props.item_nextEvent2Start || (props.prefix + "_nextEvent2Start"))].state).format("dd")'
                                 style:
                                   font-size: 11px
-                                  color: var(--f7-text-color-secondary, #8e8e93)
+                                  color: var(--f7-text-color-secondary)
                                   text-transform: uppercase
                                   font-weight: 600
                             - component: Label
@@ -485,7 +485,7 @@ slots:
                                   font-size: 20px
                                   font-weight: 700
                                   line-height: 1.1
-                                  color: var(--f7-text-color, #1c1c1e)
+                                  color: var(--f7-text-color)
                             - component: Label
                               config:
                                 text: '=dayjs(items[(props.item_nextEvent2Start || (props.prefix + "_nextEvent2Start"))].state).format("MMM").toUpperCase()'
@@ -508,7 +508,7 @@ slots:
                                 style:
                                   font-weight: 600
                                   font-size: 14px
-                                  color: var(--f7-text-color, #1c1c1e)
+                                  color: var(--f7-text-color)
                                   white-space: normal
                                   word-break: break-word
                             - component: Label
@@ -516,7 +516,7 @@ slots:
                                 text: '=dayjs(items[(props.item_nextEvent2Start || (props.prefix + "_nextEvent2Start"))].state).format("HH:mm") + " - " + dayjs(items[(props.item_nextEvent2End || (props.prefix + "_nextEvent2End"))].state).format("HH:mm") + " Uhr"'
                                 style:
                                   font-size: 12px
-                                  color: var(--f7-text-color-secondary, #8e8e93)
+                                  color: var(--f7-text-color-secondary)
                                   margin-top: 2px
 
                 # Termin 3
@@ -552,7 +552,7 @@ slots:
                                 text: '=dayjs(items[(props.item_nextEvent3Start || (props.prefix + "_nextEvent3Start"))].state).format("dd")'
                                 style:
                                   font-size: 11px
-                                  color: var(--f7-text-color-secondary, #8e8e93)
+                                  color: var(--f7-text-color-secondary)
                                   text-transform: uppercase
                                   font-weight: 600
                             - component: Label
@@ -562,7 +562,7 @@ slots:
                                   font-size: 20px
                                   font-weight: 700
                                   line-height: 1.1
-                                  color: var(--f7-text-color, #1c1c1e)
+                                  color: var(--f7-text-color)
                             - component: Label
                               config:
                                 text: '=dayjs(items[(props.item_nextEvent3Start || (props.prefix + "_nextEvent3Start"))].state).format("MMM").toUpperCase()'
@@ -585,7 +585,7 @@ slots:
                                 style:
                                   font-weight: 600
                                   font-size: 14px
-                                  color: var(--f7-text-color, #1c1c1e)
+                                  color: var(--f7-text-color)
                                   white-space: normal
                                   word-break: break-word
                             - component: Label
@@ -593,7 +593,7 @@ slots:
                                 text: '=dayjs(items[(props.item_nextEvent3Start || (props.prefix + "_nextEvent3Start"))].state).format("HH:mm") + " - " + dayjs(items[(props.item_nextEvent3End || (props.prefix + "_nextEvent3End"))].state).format("HH:mm") + " Uhr"'
                                 style:
                                   font-size: 12px
-                                  color: var(--f7-text-color-secondary, #8e8e93)
+                                  color: var(--f7-text-color-secondary)
                                   margin-top: 2px
 
                 # Aktiver Heizstatus Banner
@@ -680,7 +680,7 @@ slots:
         style:
           border-radius: 14px
           margin: 0
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1)
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12)
       slots:
         default:
           - component: f7-list
