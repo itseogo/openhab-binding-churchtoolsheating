@@ -109,7 +109,7 @@ public class RoomHeaterHandler extends BaseThingHandler {
                             currentTemp = Double.parseDouble(state.toString().replaceAll("[^0-9.-]", ""));
                         } catch (NumberFormatException e) {}
                     }
-                    updateState(ChurchToolsHeatingBindingConstants.CHANNEL_CURRENT_TEMPERATURE, new QuantityType<>(currentTemp + " °C"));
+                    // Do NOT call updateState here to prevent infinite loop with Follow Profile / Item feedback
                     break;
                 case ChurchToolsHeatingBindingConstants.CHANNEL_TARGET_TEMPERATURE:
                     if (state instanceof QuantityType) {
@@ -121,7 +121,7 @@ public class RoomHeaterHandler extends BaseThingHandler {
                             targetTemp = Double.parseDouble(state.toString().replaceAll("[^0-9.-]", ""));
                         } catch (NumberFormatException e) {}
                     }
-                    updateState(ChurchToolsHeatingBindingConstants.CHANNEL_TARGET_TEMPERATURE, new QuantityType<>(targetTemp + " °C"));
+                    // Do NOT call updateState here to prevent infinite loop with Follow Profile / Item feedback
                     break;
                 case ChurchToolsHeatingBindingConstants.CHANNEL_SUMMER_MODE:
                     if (state instanceof OnOffType) {
