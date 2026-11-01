@@ -9,8 +9,10 @@ import java.util.concurrent.TimeUnit;
 
 import org.openhab.core.config.core.Configuration;
 import org.openhab.core.library.types.DateTimeType;
+import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.library.types.QuantityType;
+import org.openhab.core.library.types.StringType;
 import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.Thing;
@@ -18,6 +20,7 @@ import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.binding.BaseThingHandler;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.State;
+import org.openhab.core.types.UnDefType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -76,13 +79,8 @@ public class RoomHeaterHandler extends BaseThingHandler {
 
     @Override
     public void initialize() {
-        logger.debug("Initializing Room Heater Handler");
+        logger.debug("Initializing Room Heater Handler for {}", getThing().getUID());
         updateStatus(ThingStatus.ONLINE);
-        
-        int refreshInterval = 15;
-        if (getBridge() != null && getBridge().getHandler() instanceof ChurchToolsBridgeHandler) {
-            refreshInterval = ((ChurchToolsBridgeHandler) getBridge().getHandler()).getRefreshInterval();
-        }
         
         // Start polling logic every 1 minute for fast reaction to event boundaries
         pollingJob = scheduler.scheduleWithFixedDelay(this::evaluateHeatingLogic, 0, 1, TimeUnit.MINUTES);
@@ -104,42 +102,56 @@ public class RoomHeaterHandler extends BaseThingHandler {
                 case ChurchToolsHeatingBindingConstants.CHANNEL_CURRENT_TEMPERATURE:
                     if (state instanceof QuantityType) {
                         currentTemp = ((QuantityType<?>) state).toBigDecimal().doubleValue();
+                    } else if (state instanceof DecimalType) {
+                        currentTemp = ((DecimalType) state).toBigDecimal().doubleValue();
+                    } else if (state instanceof StringType) {
+                        try {
+                            currentTemp = Double.parseDouble(state.toString().replaceAll("[^0-9.-]", ""));
+                        } catch (NumberFormatException e) {}
                     }
+                    updateState(ChurchToolsHeatingBindingConstants.CHANNEL_CURRENT_TEMPERATURE, new QuantityType<>(currentTemp + " °C"));
                     break;
                 case ChurchToolsHeatingBindingConstants.CHANNEL_TARGET_TEMPERATURE:
                     if (state instanceof QuantityType) {
                         targetTemp = ((QuantityType<?>) state).toBigDecimal().doubleValue();
+                    } else if (state instanceof DecimalType) {
+                        targetTemp = ((DecimalType) state).toBigDecimal().doubleValue();
+                    } else if (state instanceof StringType) {
+                        try {
+                            targetTemp = Double.parseDouble(state.toString().replaceAll("[^0-9.-]", ""));
+                        } catch (NumberFormatException e) {}
                     }
+                    updateState(ChurchToolsHeatingBindingConstants.CHANNEL_TARGET_TEMPERATURE, new QuantityType<>(targetTemp + " °C"));
                     break;
                 case ChurchToolsHeatingBindingConstants.CHANNEL_SUMMER_MODE:
                     if (state instanceof OnOffType) {
                         summerMode = state == OnOffType.ON;
-                    } else if (state instanceof org.openhab.core.library.types.StringType) {
+                    } else if (state instanceof StringType) {
                         summerMode = state.toString().equalsIgnoreCase("ON");
                     }
                     updateState(ChurchToolsHeatingBindingConstants.CHANNEL_SUMMER_MODE, summerMode ? OnOffType.ON : OnOffType.OFF);
                     break;
                 case ChurchToolsHeatingBindingConstants.CHANNEL_HEATING_ENABLED:
-                    if (state instanceof OnOffType || state instanceof org.openhab.core.library.types.StringType) {
+                    if (state instanceof OnOffType || state instanceof StringType) {
                         heatingEnabled = state.toString().equalsIgnoreCase("ON");
                         // Reset any active manual override when automation is toggled
                         manualOverrideUntil = null;
-                        updateState(ChurchToolsHeatingBindingConstants.CHANNEL_MANUAL_OVERRIDE_UNTIL, org.openhab.core.types.UnDefType.UNDEF);
+                        updateState(ChurchToolsHeatingBindingConstants.CHANNEL_MANUAL_OVERRIDE_UNTIL, UnDefType.UNDEF);
                     }
                     updateState(ChurchToolsHeatingBindingConstants.CHANNEL_HEATING_ENABLED, heatingEnabled ? OnOffType.ON : OnOffType.OFF);
                     break;
                 case ChurchToolsHeatingBindingConstants.CHANNEL_MANUAL_OVERRIDE_UNTIL:
-                    if (state instanceof org.openhab.core.types.UnDefType || (state instanceof org.openhab.core.library.types.StringType && state.toString().equals("UNDEF"))) {
+                    if (state instanceof UnDefType || (state instanceof StringType && state.toString().equals("UNDEF"))) {
                         manualOverrideUntil = null;
-                        updateState(ChurchToolsHeatingBindingConstants.CHANNEL_MANUAL_OVERRIDE_UNTIL, org.openhab.core.types.UnDefType.UNDEF);
+                        updateState(ChurchToolsHeatingBindingConstants.CHANNEL_MANUAL_OVERRIDE_UNTIL, UnDefType.UNDEF);
                         logger.info("Manual override was explicitly reset by user.");
                     }
                     break;
                 case ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE:
                     java.math.BigDecimal newMode = null;
-                    if (state instanceof org.openhab.core.library.types.DecimalType) {
-                        newMode = ((org.openhab.core.library.types.DecimalType) state).toBigDecimal();
-                    } else if (state instanceof org.openhab.core.library.types.StringType) {
+                    if (state instanceof DecimalType) {
+                        newMode = ((DecimalType) state).toBigDecimal();
+                    } else if (state instanceof StringType) {
                         try {
                             newMode = new java.math.BigDecimal(state.toString());
                         } catch (NumberFormatException e) {}
@@ -154,7 +166,7 @@ public class RoomHeaterHandler extends BaseThingHandler {
                             logger.info("External HVAC override detected for resource {}. Suspending automation for {} hours until {}", getConfig().get("resourceId"), overrideHours, manualOverrideUntil);
                         }
                         expectedHvacMode = newMode;
-                        updateState(ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE, new org.openhab.core.library.types.DecimalType(newMode));
+                        updateState(ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE, new DecimalType(newMode));
                     }
                     break;
             }
@@ -181,10 +193,7 @@ public class RoomHeaterHandler extends BaseThingHandler {
             int resourceId = getIntConfig("resourceId", 0);
             boolean onlyConfirmed = getBooleanConfig("onlyConfirmedBookings", true);
 
-            int refreshInterval = 15;
-            if (getBridge() != null && getBridge().getHandler() instanceof ChurchToolsBridgeHandler) {
-                refreshInterval = ((ChurchToolsBridgeHandler) getBridge().getHandler()).getRefreshInterval();
-            }
+            int refreshInterval = bridgeHandler.getRefreshInterval();
             long cacheDurationMs = refreshInterval * 60 * 1000L;
 
             List<ChurchToolsAPI.Booking> bookings = cachedBookings;
@@ -198,9 +207,8 @@ public class RoomHeaterHandler extends BaseThingHandler {
             // Sort bookings by start date
             bookings.sort((b1, b2) -> b1.startDate.compareTo(b2.startDate));
 
-            // Read new configuration for max duration filtering
+            // Read configuration for max duration filtering
             boolean enableFilter = getBooleanConfig("enableMaxDurationFilter", true);
-
             int maxDuration = getIntConfig("maxEventDuration", 10);
 
             ZonedDateTime now = ZonedDateTime.now();
@@ -219,27 +227,27 @@ public class RoomHeaterHandler extends BaseThingHandler {
             String event2 = upcoming.size() > 1 ? upcoming.get(1).caption : "-";
             String event3 = upcoming.size() > 2 ? upcoming.get(2).caption : "-";
 
-            updateState(ChurchToolsHeatingBindingConstants.CHANNEL_UPCOMING_EVENT_1, new org.openhab.core.library.types.StringType(event1));
-            updateState(ChurchToolsHeatingBindingConstants.CHANNEL_UPCOMING_EVENT_2, new org.openhab.core.library.types.StringType(event2));
-            updateState(ChurchToolsHeatingBindingConstants.CHANNEL_UPCOMING_EVENT_3, new org.openhab.core.library.types.StringType(event3));
+            updateState(ChurchToolsHeatingBindingConstants.CHANNEL_UPCOMING_EVENT_1, new StringType(event1));
+            updateState(ChurchToolsHeatingBindingConstants.CHANNEL_UPCOMING_EVENT_2, new StringType(event2));
+            updateState(ChurchToolsHeatingBindingConstants.CHANNEL_UPCOMING_EVENT_3, new StringType(event3));
 
             if (upcoming.size() > 1) {
                 updateState(ChurchToolsHeatingBindingConstants.CHANNEL_NEXT_EVENT_2_START, new DateTimeType(upcoming.get(1).startDate));
                 updateState(ChurchToolsHeatingBindingConstants.CHANNEL_NEXT_EVENT_2_END, new DateTimeType(upcoming.get(1).endDate));
             } else {
-                updateState(ChurchToolsHeatingBindingConstants.CHANNEL_NEXT_EVENT_2_START, org.openhab.core.types.UnDefType.UNDEF);
-                updateState(ChurchToolsHeatingBindingConstants.CHANNEL_NEXT_EVENT_2_END, org.openhab.core.types.UnDefType.UNDEF);
+                updateState(ChurchToolsHeatingBindingConstants.CHANNEL_NEXT_EVENT_2_START, UnDefType.UNDEF);
+                updateState(ChurchToolsHeatingBindingConstants.CHANNEL_NEXT_EVENT_2_END, UnDefType.UNDEF);
             }
 
             if (upcoming.size() > 2) {
                 updateState(ChurchToolsHeatingBindingConstants.CHANNEL_NEXT_EVENT_3_START, new DateTimeType(upcoming.get(2).startDate));
                 updateState(ChurchToolsHeatingBindingConstants.CHANNEL_NEXT_EVENT_3_END, new DateTimeType(upcoming.get(2).endDate));
             } else {
-                updateState(ChurchToolsHeatingBindingConstants.CHANNEL_NEXT_EVENT_3_START, org.openhab.core.types.UnDefType.UNDEF);
-                updateState(ChurchToolsHeatingBindingConstants.CHANNEL_NEXT_EVENT_3_END, org.openhab.core.types.UnDefType.UNDEF);
+                updateState(ChurchToolsHeatingBindingConstants.CHANNEL_NEXT_EVENT_3_START, UnDefType.UNDEF);
+                updateState(ChurchToolsHeatingBindingConstants.CHANNEL_NEXT_EVENT_3_END, UnDefType.UNDEF);
             }
 
-            // 1. Find valid event for heating (already filtered for max 10h duration)
+            // 1. Find valid event for heating
             ZonedDateTime eventStart = null;
             ZonedDateTime eventEnd = null;
 
@@ -267,24 +275,24 @@ public class RoomHeaterHandler extends BaseThingHandler {
                 double deltaT = targetTemp - currentTemp;
                 if (deltaT < 0) deltaT = 0;
 
-                double dt1 = ((BigDecimal) getConfig().get("deltaT1")).doubleValue();
-                double dt2 = ((BigDecimal) getConfig().get("deltaT2")).doubleValue();
-                double dt3 = ((BigDecimal) getConfig().get("deltaT3")).doubleValue();
-                double dt4 = ((BigDecimal) getConfig().get("deltaT4")).doubleValue();
+                double dt1 = getDoubleConfig("deltaT1", 0.5);
+                double dt2 = getDoubleConfig("deltaT2", 1.0);
+                double dt3 = getDoubleConfig("deltaT3", 2.0);
+                double dt4 = getDoubleConfig("deltaT4", 4.0);
 
-                double h1 = ((BigDecimal) getConfig().get("vorlauf1")).doubleValue();
-                double h2 = ((BigDecimal) getConfig().get("vorlauf2")).doubleValue();
-                double h3 = ((BigDecimal) getConfig().get("vorlauf3")).doubleValue();
-                double h4 = ((BigDecimal) getConfig().get("vorlauf4")).doubleValue();
+                double h1 = getDoubleConfig("vorlauf1", 1.0);
+                double h2 = getDoubleConfig("vorlauf2", 2.5);
+                double h3 = getDoubleConfig("vorlauf3", 5.0);
+                double h4 = getDoubleConfig("vorlauf4", 8.0);
 
                 if (deltaT <= dt1) {
                     vorlaufH = h1;
                 } else if (deltaT <= dt2) {
-                    vorlaufH = h1 + (h2 - h1) * ((deltaT - dt1) / (dt2 - dt1));
+                    vorlaufH = (dt2 > dt1) ? h1 + (h2 - h1) * ((deltaT - dt1) / (dt2 - dt1)) : h2;
                 } else if (deltaT <= dt3) {
-                    vorlaufH = h2 + (h3 - h2) * ((deltaT - dt2) / (dt3 - dt2));
+                    vorlaufH = (dt3 > dt2) ? h2 + (h3 - h2) * ((deltaT - dt2) / (dt3 - dt2)) : h3;
                 } else if (deltaT <= dt4) {
-                    vorlaufH = h3 + (h4 - h3) * ((deltaT - dt3) / (dt4 - dt3));
+                    vorlaufH = (dt4 > dt3) ? h3 + (h4 - h3) * ((deltaT - dt3) / (dt4 - dt3)) : h4;
                 } else {
                     vorlaufH = h4;
                 }
@@ -293,6 +301,9 @@ public class RoomHeaterHandler extends BaseThingHandler {
             int vorlaufInMinuten = (int) (vorlaufH * 60.0);
             ZonedDateTime vorlaufZeit = eventStart.minusMinutes(vorlaufInMinuten);
             updateState(ChurchToolsHeatingBindingConstants.CHANNEL_HEATING_START, new DateTimeType(vorlaufZeit));
+
+            logger.debug("Heating evaluation: targetTemp={}, currentTemp={}, deltaT={}, vorlaufH={}h ({} min), eventStart={}, vorlaufZeit={}",
+                    targetTemp, currentTemp, (targetTemp - currentTemp), vorlaufH, vorlaufInMinuten, eventStart, vorlaufZeit);
 
             // 3. Control logic
             OnOffType targetRelayState;
@@ -308,7 +319,7 @@ public class RoomHeaterHandler extends BaseThingHandler {
             if (targetRelayState == OnOffType.ON && previousTargetRelayState == OnOffType.OFF) {
                 if (manualOverrideUntil != null) {
                     manualOverrideUntil = null;
-                    updateState(ChurchToolsHeatingBindingConstants.CHANNEL_MANUAL_OVERRIDE_UNTIL, org.openhab.core.types.UnDefType.UNDEF);
+                    updateState(ChurchToolsHeatingBindingConstants.CHANNEL_MANUAL_OVERRIDE_UNTIL, UnDefType.UNDEF);
                     logger.info("New event heating phase started. Automatically resetting manual override for resource {}.", getConfig().get("resourceId"));
                 }
             }
@@ -352,7 +363,7 @@ public class RoomHeaterHandler extends BaseThingHandler {
                 } else {
                     // Override expired
                     manualOverrideUntil = null;
-                    updateState(ChurchToolsHeatingBindingConstants.CHANNEL_MANUAL_OVERRIDE_UNTIL, org.openhab.core.types.UnDefType.UNDEF);
+                    updateState(ChurchToolsHeatingBindingConstants.CHANNEL_MANUAL_OVERRIDE_UNTIL, UnDefType.UNDEF);
                     logger.info("Manual override expired. Resuming automation.");
                     updateRelay(targetRelayState);
                     updateHvacMode(targetHvacMode);
@@ -376,7 +387,7 @@ public class RoomHeaterHandler extends BaseThingHandler {
     private void updateHvacMode(java.math.BigDecimal newMode) {
         if (this.expectedHvacMode == null || newMode.compareTo(this.expectedHvacMode) != 0) {
             this.expectedHvacMode = newMode;
-            org.openhab.core.library.types.DecimalType command = new org.openhab.core.library.types.DecimalType(newMode);
+            DecimalType command = new DecimalType(newMode);
             updateState(ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE, command);
             getCallback().postCommand(new ChannelUID(getThing().getUID(), ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE), command);
             logger.info("Room Heater HVAC Mode changed to {}", newMode);
@@ -401,7 +412,7 @@ public class RoomHeaterHandler extends BaseThingHandler {
             if (newState == OnOffType.ON) {
                 updateState(ChurchToolsHeatingBindingConstants.CHANNEL_ACTUAL_HEATING_START, new DateTimeType(ZonedDateTime.now()));
             } else {
-                updateState(ChurchToolsHeatingBindingConstants.CHANNEL_ACTUAL_HEATING_START, org.openhab.core.types.UnDefType.UNDEF);
+                updateState(ChurchToolsHeatingBindingConstants.CHANNEL_ACTUAL_HEATING_START, UnDefType.UNDEF);
             }
             logger.info("Room Heater Relay changed to {}", newState);
         }
