@@ -152,6 +152,27 @@
                 <advanced>true</advanced>
             </parameter>
 
+            <parameter name="knxHvacModeItem" type="text">
+                <context>item</context>
+                <label>KNX Betriebsart Item (Direkt)</label>
+                <description>Optional: Name des externen KNX Items (z.B. Heizung_Jugendraum). Das Binding lauscht direkt darauf - keine Rule oder Profile nötig!</description>
+                <advanced>false</advanced>
+            </parameter>
+
+            <parameter name="knxTargetTempItem" type="text">
+                <context>item</context>
+                <label>KNX Soll-Temperatur Item (Direkt)</label>
+                <description>Optional: Name des externen KNX Sollwert Items (z.B. Heizung_soll_Jugendraum). Handerkennung funktioniert direkt ohne Rule!</description>
+                <advanced>false</advanced>
+            </parameter>
+
+            <parameter name="knxCurrentTempItem" type="text">
+                <context>item</context>
+                <label>KNX Ist-Temperatur Item (Direkt)</label>
+                <description>Optional: Name des externen KNX Ist-Temperatur Items (z.B. Heizung_Ist_Jugendraum). Übernimmt den Messwert direkt!</description>
+                <advanced>false</advanced>
+            </parameter>
+
             <parameter name="offHvacMode" type="integer">
                 <label>Modus zum Ausschalten</label>
                 <description>Welcher KNX HVAC-Modus (Zahl) soll gesendet werden, um die Heizung auszuschalten? (Heizen sendet immer 1 = Komfort)</description>

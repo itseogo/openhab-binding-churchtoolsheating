@@ -97,8 +97,23 @@ public class RoomHeaterHandler extends BaseThingHandler {
     @Override
     public void handleCommand(ChannelUID channelUID, Command command) {
         if (command instanceof State) {
-            State state = (State) command;
-            switch (channelUID.getId()) {
+            processChannelState(channelUID.getId(), (State) command);
+        }
+    }
+
+    public void onItemNameStateChanged(String itemName, State state) {
+        if (itemName == null) return;
+        if (itemName.equals(getConfig().get("knxHvacModeItem"))) {
+            processChannelState(ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE, state);
+        } else if (itemName.equals(getConfig().get("knxTargetTempItem"))) {
+            processChannelState(ChurchToolsHeatingBindingConstants.CHANNEL_ACTUATOR_TARGET_TEMP, state);
+        } else if (itemName.equals(getConfig().get("knxCurrentTempItem"))) {
+            processChannelState(ChurchToolsHeatingBindingConstants.CHANNEL_CURRENT_TEMPERATURE, state);
+        }
+    }
+
+    public synchronized void processChannelState(String channelId, State state) {
+        switch (channelId) {
                 case ChurchToolsHeatingBindingConstants.CHANNEL_CURRENT_TEMPERATURE:
                     if (state instanceof QuantityType) {
                         currentTemp = ((QuantityType<?>) state).toBigDecimal().doubleValue();
@@ -218,7 +233,6 @@ public class RoomHeaterHandler extends BaseThingHandler {
             }
             // Re-evaluate logic if inputs change
             evaluateHeatingLogic();
-        }
     }
 
     private void evaluateHeatingLogic() {
