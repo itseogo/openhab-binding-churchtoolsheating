@@ -166,7 +166,7 @@ public class RoomHeaterHandler extends BaseThingHandler {
                             logger.info("External HVAC override detected for resource {}. Suspending automation for {} hours until {}", getConfig().get("resourceId"), overrideHours, manualOverrideUntil);
                         }
                         expectedHvacMode = newMode;
-                        updateState(ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE, new DecimalType(newMode));
+                        // Do NOT call updateState here to prevent infinite loop with Follow Profile / Item feedback
                     }
                     break;
             }
