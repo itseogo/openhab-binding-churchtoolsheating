@@ -1,13 +1,14 @@
 package org.openhab.binding.churchtoolsheating.internal;
 
-import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.openhab.core.events.Event;
 import org.openhab.core.events.EventSubscriber;
+import org.openhab.core.items.events.ItemCommandEvent;
 import org.openhab.core.items.events.ItemStateChangedEvent;
+import org.openhab.core.items.events.ItemStateEvent;
 import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.Thing;
@@ -75,16 +76,35 @@ public class ChurchToolsHandlerFactory extends BaseThingHandlerFactory implement
 
     @Override
     public Set<String> getSubscribedEventTypes() {
-        return Collections.singleton(ItemStateChangedEvent.TYPE);
+        return Set.of(
+            ItemStateChangedEvent.TYPE,
+            ItemStateEvent.TYPE,
+            ItemCommandEvent.TYPE
+        );
     }
 
     @Override
     public void receive(Event event) {
-        if (event instanceof ItemStateChangedEvent) {
-            ItemStateChangedEvent stateEvent = (ItemStateChangedEvent) event;
-            String itemName = stateEvent.getItemName();
-            State newState = stateEvent.getItemState();
+        String itemName = null;
+        State newState = null;
 
+        if (event instanceof ItemStateChangedEvent) {
+            ItemStateChangedEvent stateChangedEvent = (ItemStateChangedEvent) event;
+            itemName = stateChangedEvent.getItemName();
+            newState = stateChangedEvent.getItemState();
+        } else if (event instanceof ItemStateEvent) {
+            ItemStateEvent stateEvent = (ItemStateEvent) event;
+            itemName = stateEvent.getItemName();
+            newState = stateEvent.getItemState();
+        } else if (event instanceof ItemCommandEvent) {
+            ItemCommandEvent commandEvent = (ItemCommandEvent) event;
+            itemName = commandEvent.getItemName();
+            if (commandEvent.getItemCommand() instanceof State) {
+                newState = (State) commandEvent.getItemCommand();
+            }
+        }
+
+        if (itemName != null && newState != null) {
             ItemChannelLinkRegistry registry = this.linkRegistry;
             if (registry != null) {
                 Set<ChannelUID> boundChannels = registry.getBoundChannels(itemName);

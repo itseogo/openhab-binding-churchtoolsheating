@@ -103,16 +103,24 @@ public class RoomHeaterHandler extends BaseThingHandler {
 
     public void onItemNameStateChanged(String itemName, State state) {
         if (itemName == null) return;
-        if (itemName.equals(getConfig().get("knxHvacModeItem"))) {
+        Object hvacCfg = getConfig().get("knxHvacModeItem");
+        Object targetCfg = getConfig().get("knxTargetTempItem");
+        Object currentCfg = getConfig().get("knxCurrentTempItem");
+
+        if (hvacCfg != null && itemName.equalsIgnoreCase(hvacCfg.toString().trim())) {
+            logger.info("RoomHeater [{}] matched knxHvacModeItem {}: state={}", getThing().getUID().getId(), itemName, state);
             processChannelState(ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE, state);
-        } else if (itemName.equals(getConfig().get("knxTargetTempItem"))) {
+        } else if (targetCfg != null && itemName.equalsIgnoreCase(targetCfg.toString().trim())) {
+            logger.info("RoomHeater [{}] matched knxTargetTempItem {}: state={}", getThing().getUID().getId(), itemName, state);
             processChannelState(ChurchToolsHeatingBindingConstants.CHANNEL_ACTUATOR_TARGET_TEMP, state);
-        } else if (itemName.equals(getConfig().get("knxCurrentTempItem"))) {
+        } else if (currentCfg != null && itemName.equalsIgnoreCase(currentCfg.toString().trim())) {
+            logger.info("RoomHeater [{}] matched knxCurrentTempItem {}: state={}", getThing().getUID().getId(), itemName, state);
             processChannelState(ChurchToolsHeatingBindingConstants.CHANNEL_CURRENT_TEMPERATURE, state);
         }
     }
 
     public synchronized void processChannelState(String channelId, State state) {
+        logger.debug("RoomHeater [{}] processChannelState: channelId={}, state={}", getThing().getUID().getId(), channelId, state);
         switch (channelId) {
                 case ChurchToolsHeatingBindingConstants.CHANNEL_CURRENT_TEMPERATURE:
                     if (state instanceof QuantityType) {
@@ -175,7 +183,7 @@ public class RoomHeaterHandler extends BaseThingHandler {
                     }
                     
                     if (newActuatorTemp > 0) {
-                        boolean enableExternalManualMode = getBooleanConfig("enableExternalManualMode", false);
+                        boolean enableExternalManualMode = getBooleanConfig("enableExternalManualMode", true);
                         double currentExpected = expectedActuatorTargetTemp != null ? expectedActuatorTargetTemp : getDoubleConfig("offTemperature", 17.0);
                         if (enableExternalManualMode && Math.abs(newActuatorTemp - currentExpected) >= 0.3) {
                             int overrideHours = getIntConfig("externalManualModeDuration", 6);
@@ -209,7 +217,7 @@ public class RoomHeaterHandler extends BaseThingHandler {
                     }
                     
                     if (newMode != null) {
-                        boolean enableExternalManualMode = getBooleanConfig("enableExternalManualMode", false);
+                        boolean enableExternalManualMode = getBooleanConfig("enableExternalManualMode", true);
                         java.math.BigDecimal currentExpectedMode = expectedHvacMode != null ? expectedHvacMode : java.math.BigDecimal.valueOf(getIntConfig("offHvacMode", 3));
                         if (enableExternalManualMode && newMode.compareTo(currentExpectedMode) != 0) {
                             int overrideHours = getIntConfig("externalManualModeDuration", 6);
