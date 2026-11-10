@@ -39,8 +39,6 @@ public class RoomHeaterHandler extends BaseThingHandler {
     private ZonedDateTime manualOverrideUntil = null;
     private java.math.BigDecimal expectedHvacMode = null;
     private Double expectedActuatorTargetTemp = null;
-    private boolean previousHeatingEnabled = true;
-    private boolean previousSummerMode = false;
     private OnOffType previousTargetRelayState = OnOffType.OFF;
     
     private List<ChurchToolsAPI.Booking> cachedBookings = null;
@@ -458,21 +456,8 @@ public class RoomHeaterHandler extends BaseThingHandler {
                 targetHvacMode = java.math.BigDecimal.valueOf(getIntConfig("offHvacMode", 3));
             }
 
-            // Check if automation was just disabled or summer mode just activated
-            boolean justDisabled = (previousHeatingEnabled && !heatingEnabled) || (!previousSummerMode && summerMode);
-            previousHeatingEnabled = heatingEnabled;
-            previousSummerMode = summerMode;
-
-            if (justDisabled) {
-                // Automation just disabled. Force it to offHvacMode and Relay OFF once.
-                updateRelay(OnOffType.OFF);
-                updateHvacMode(targetHvacMode);
-                updateActuatorTargetTemp(actuatorTargetTempVal);
-                logger.info("Heizautomatik disabled (or summer mode active). Forced HVAC to OFF mode once.");
-            }
-
             if (!heatingEnabled || summerMode) {
-                // Automation is disabled, we do not interfere with the KNX bus continuously.
+                // Automation is disabled, we do not interfere with the KNX bus at all (hands off).
                 // Sync UI with internal state
                 updateState(ChurchToolsHeatingBindingConstants.CHANNEL_HEATING_ENABLED, heatingEnabled ? OnOffType.ON : OnOffType.OFF);
                 updateState(ChurchToolsHeatingBindingConstants.CHANNEL_SUMMER_MODE, summerMode ? OnOffType.ON : OnOffType.OFF);

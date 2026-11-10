@@ -156,6 +156,9 @@ Number:Temperature Raum_Saal_currentTemperature "Ist-Temperatur [%.1f °C]" {
    * Bei regulärem Heizbeginn der Automatik (`manualOverrideUntil == null && targetRelayState == ON && mode == 1`) wird kein Handbetrieb ausgelöst.
 4. **Timeout-Rückkehr:**
    * Nach Ablauf der 6 Stunden kehrt der Raum automatisch zum regulären Zeitplan zurück.
+5. **Kein Eingriff beim Deaktivieren der Heizautomatik (Hands-off):**
+   * Das frühere `justDisabled`-Verhalten, das beim Ausschalten der Automatik einmalig Relais und HVAC-Modus zwangsweise auf Nacht (3) gesetzt hat, wurde vollständig entfernt.
+   * Wird `heatingEnabled` auf `OFF` geschaltet, fasst das Binding den KNX-Bus nicht mehr an – der aktuelle Modus bleibt exakt so stehen, wie er ist.
 
 #### Datei: `src/main/resources/OH-INF/thing/thing-types.xml`
 * `enableExternalManualMode`: Checkbox "KNX Handbetrieb erlauben" (Default: `true`).
