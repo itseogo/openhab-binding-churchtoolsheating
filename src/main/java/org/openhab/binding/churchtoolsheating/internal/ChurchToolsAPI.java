@@ -121,7 +121,7 @@ public class ChurchToolsAPI {
         return bookings;
     }
     
-    private ZonedDateTime parseDate(String dateStr) {
+    ZonedDateTime parseDate(String dateStr) {
         if (dateStr == null || dateStr.trim().isEmpty()) {
             return null;
         }

@@ -48,7 +48,7 @@ public class RoomHeaterHandler extends BaseThingHandler {
         super(thing);
     }
 
-    private int getIntConfig(String key, int defaultVal) {
+    int getIntConfig(String key, int defaultVal) {
         Object val = getConfig().get(key);
         if (val == null) return defaultVal;
         if (val instanceof Number) return ((Number) val).intValue();
@@ -58,7 +58,7 @@ public class RoomHeaterHandler extends BaseThingHandler {
         return defaultVal;
     }
 
-    private boolean getBooleanConfig(String key, boolean defaultVal) {
+    boolean getBooleanConfig(String key, boolean defaultVal) {
         Object val = getConfig().get(key);
         if (val == null) return defaultVal;
         if (val instanceof Boolean) return (Boolean) val;
@@ -66,7 +66,7 @@ public class RoomHeaterHandler extends BaseThingHandler {
         return defaultVal;
     }
 
-    private double getDoubleConfig(String key, double defaultVal) {
+    double getDoubleConfig(String key, double defaultVal) {
         Object val = getConfig().get(key);
         if (val == null) return defaultVal;
         if (val instanceof Number) return ((Number) val).doubleValue();
@@ -380,61 +380,61 @@ public class RoomHeaterHandler extends BaseThingHandler {
             }
 
             if (eventStart == null) {
-                updateRelay(OnOffType.OFF);
-                updateHvacMode(java.math.BigDecimal.valueOf(getIntConfig("offHvacMode", 3)));
-                updateActuatorTargetTemp(getDoubleConfig("offTemperature", 17.0));
-                return;
-            }
-            
-            updateState(ChurchToolsHeatingBindingConstants.CHANNEL_NEXT_EVENT_START, new DateTimeType(eventStart));
-            updateState(ChurchToolsHeatingBindingConstants.CHANNEL_NEXT_EVENT_END, new DateTimeType(eventEnd));
-
-            // 2. Calculate Pre-heat time (4-point curve)
-            boolean enablePreheating = getBooleanConfig("enablePreheating", true);
-
-            double vorlaufH = 0.0;
-
-            if (enablePreheating) {
-                double deltaT = targetTemp - currentTemp;
-                if (deltaT < 0) deltaT = 0;
-
-                double dt1 = getDoubleConfig("deltaT1", 0.5);
-                double dt2 = getDoubleConfig("deltaT2", 1.0);
-                double dt3 = getDoubleConfig("deltaT3", 2.0);
-                double dt4 = getDoubleConfig("deltaT4", 4.0);
-
-                double h1 = getDoubleConfig("vorlauf1", 1.0);
-                double h2 = getDoubleConfig("vorlauf2", 2.5);
-                double h3 = getDoubleConfig("vorlauf3", 5.0);
-                double h4 = getDoubleConfig("vorlauf4", 8.0);
-
-                if (deltaT <= dt1) {
-                    vorlaufH = h1;
-                } else if (deltaT <= dt2) {
-                    vorlaufH = (dt2 > dt1) ? h1 + (h2 - h1) * ((deltaT - dt1) / (dt2 - dt1)) : h2;
-                } else if (deltaT <= dt3) {
-                    vorlaufH = (dt3 > dt2) ? h2 + (h3 - h2) * ((deltaT - dt2) / (dt3 - dt2)) : h3;
-                } else if (deltaT <= dt4) {
-                    vorlaufH = (dt4 > dt3) ? h3 + (h4 - h3) * ((deltaT - dt3) / (dt4 - dt3)) : h4;
-                } else {
-                    vorlaufH = h4;
-                }
-            }
-
-            int vorlaufInMinuten = (int) (vorlaufH * 60.0);
-            ZonedDateTime vorlaufZeit = eventStart.minusMinutes(vorlaufInMinuten);
-            updateState(ChurchToolsHeatingBindingConstants.CHANNEL_HEATING_START, new DateTimeType(vorlaufZeit));
-
-            logger.debug("Heating evaluation: targetTemp={}, currentTemp={}, deltaT={}, vorlaufH={}h ({} min), eventStart={}, vorlaufZeit={}",
-                    targetTemp, currentTemp, (targetTemp - currentTemp), vorlaufH, vorlaufInMinuten, eventStart, vorlaufZeit);
-
-            // 3. Control logic
-            if (summerMode || !heatingEnabled) {
+                updateState(ChurchToolsHeatingBindingConstants.CHANNEL_NEXT_EVENT_START, UnDefType.UNDEF);
+                updateState(ChurchToolsHeatingBindingConstants.CHANNEL_NEXT_EVENT_END, UnDefType.UNDEF);
+                updateState(ChurchToolsHeatingBindingConstants.CHANNEL_HEATING_START, UnDefType.UNDEF);
                 targetRelayState = OnOffType.OFF;
-            } else if (now.isAfter(vorlaufZeit) && now.isBefore(eventEnd)) {
-                targetRelayState = OnOffType.ON;
             } else {
-                targetRelayState = OnOffType.OFF;
+                updateState(ChurchToolsHeatingBindingConstants.CHANNEL_NEXT_EVENT_START, new DateTimeType(eventStart));
+                updateState(ChurchToolsHeatingBindingConstants.CHANNEL_NEXT_EVENT_END, new DateTimeType(eventEnd));
+
+                // 2. Calculate Pre-heat time (4-point curve)
+                boolean enablePreheating = getBooleanConfig("enablePreheating", true);
+
+                double vorlaufH = 0.0;
+
+                if (enablePreheating) {
+                    double deltaT = targetTemp - currentTemp;
+                    if (deltaT < 0) deltaT = 0;
+
+                    double dt1 = getDoubleConfig("deltaT1", 0.5);
+                    double dt2 = getDoubleConfig("deltaT2", 1.0);
+                    double dt3 = getDoubleConfig("deltaT3", 2.0);
+                    double dt4 = getDoubleConfig("deltaT4", 4.0);
+
+                    double h1 = getDoubleConfig("vorlauf1", 1.0);
+                    double h2 = getDoubleConfig("vorlauf2", 2.5);
+                    double h3 = getDoubleConfig("vorlauf3", 5.0);
+                    double h4 = getDoubleConfig("vorlauf4", 8.0);
+
+                    if (deltaT <= dt1) {
+                        vorlaufH = h1;
+                    } else if (deltaT <= dt2) {
+                        vorlaufH = (dt2 > dt1) ? h1 + (h2 - h1) * ((deltaT - dt1) / (dt2 - dt1)) : h2;
+                    } else if (deltaT <= dt3) {
+                        vorlaufH = (dt3 > dt2) ? h2 + (h3 - h2) * ((deltaT - dt2) / (dt3 - dt2)) : h3;
+                    } else if (deltaT <= dt4) {
+                        vorlaufH = (dt4 > dt3) ? h3 + (h4 - h3) * ((deltaT - dt3) / (dt4 - dt3)) : h4;
+                    } else {
+                        vorlaufH = h4;
+                    }
+                }
+
+                int vorlaufInMinuten = (int) (vorlaufH * 60.0);
+                ZonedDateTime vorlaufZeit = eventStart.minusMinutes(vorlaufInMinuten);
+                updateState(ChurchToolsHeatingBindingConstants.CHANNEL_HEATING_START, new DateTimeType(vorlaufZeit));
+
+                logger.debug("Heating evaluation: targetTemp={}, currentTemp={}, deltaT={}, vorlaufH={}h ({} min), eventStart={}, vorlaufZeit={}",
+                        targetTemp, currentTemp, (targetTemp - currentTemp), vorlaufH, vorlaufInMinuten, eventStart, vorlaufZeit);
+
+                // 3. Control logic
+                if (summerMode || !heatingEnabled) {
+                    targetRelayState = OnOffType.OFF;
+                } else if (now.isAfter(vorlaufZeit) && now.isBefore(eventEnd)) {
+                    targetRelayState = OnOffType.ON;
+                } else {
+                    targetRelayState = OnOffType.OFF;
+                }
             }
 
             // If a new heating phase just started, automatically reset any manual override
