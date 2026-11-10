@@ -91,3 +91,89 @@ Number:Temperature Raum_Saal_currentTemperature "Ist-Temperatur [%.1f °C]" {
 }
 ```
 
+---
+
+## 5. Update & Fehlerbehebung (10. November 2026)
+
+### 5.1 Problemstellungen & Symptome
+1. **Seminarraum schaltete nach Handbetrieb nicht aus:**
+   * Beim Umschalten am KNX-Taster auf Nacht (3) sendete der Raumthermostat automatisch die Nachttemperatur (z. B. 12 °C). Die Temperaturänderung wurde fälschlicherweise als erneuter manueller Sollwert-Handbetrieb interpretiert.
+2. **Automatik meldete nach Umschalten fälschlich Handbetrieb:**
+   * Wenn die Automatik für einen anstehenden Termin auf Komfort (1) schaltete, interpretierte das Binding die KNX-Statusmeldung als manuellen Wandtaster-Klick und aktivierte die Handbetriebs-Sperre (6h).
+3. **openHAB MainUI Widget reagierte nicht auf Komfort / Standby:**
+   * Befehle aus dem Widget wurden durch eine Deaktivierung der externen KNX-Handerkennung abgewürgt und von der Automatik sofort wieder auf Nacht (3) zurückgesetzt.
+4. **100% CPU-Last & KNX-Gateway-Verbindungsverlust (Der Event-Loop-Vorfall):**
+   * Die CPU von openHAB stieg auf 100%, das KNX-IP-Gateway verlor durch Telegramm-Überflutung die Verbindung und die ChurchTools Bridge schaltete auf `DISABLED`.
+
+---
+
+### 5.2 Ursachenanalyse & Architektur-Erkenntnisse
+
+#### A. Die Ursache des Event-Loops (100% CPU & KNX Absturz)
+* In `ChurchToolsHandlerFactory.java` war das Binding als openHAB `EventSubscriber` für folgende Event-Typen registriert:
+  `ItemStateChangedEvent.TYPE`, `ItemStateEvent.TYPE`, `ItemCommandEvent.TYPE`.
+* **Der fatale Zirkelbezug:**
+  Sobald das Binding einen Befehl an openHAB sandte (`getCallback().postCommand(...)`), generierte openHAB ein `ItemCommandEvent`.
+  Die Factory fing diesen *eigenen* Befehl wieder ab, leitete ihn an `processChannelState` weiter, rief `evaluateHeatingLogic()` auf, sendete erneut `postCommand` – **eine unendliche Schleife mit tausenden Befehlen pro Sekunde**.
+  Das KNX-IP-Gateway erlitt einen Pufferüberlauf (Buffer Overflow) und trennte die Verbindung.
+
+#### B. Unterscheidung zwischen Automatik-Heizen und Handbetrieb
+* Ein Tastendruck am KNX-Wandtaster erzeugt ein **`ItemStateChangedEvent`** auf dem KNX-Item.
+* Das Binding verwaltet intern den erwarteten Zustand (`expectedHvacMode`, `expectedActuatorTargetTemp`, `targetRelayState`).
+* **Unterscheidung:**
+  * Wenn die Automatik heizt (`targetRelayState == ON`) und die Rückmeldung `1` (Komfort) eintrifft, ist das der reguläre Ablauf -> **kein Handbetrieb**.
+  * Wenn die Automatik im Ruhezustand ist (Relais OFF, Nachtmodus 3) und die Meldung `1` (Komfort) oder `2` (Standby) oder ein erhöhter Sollwert eintrifft, stammt dies vom **Wandtaster** -> **Handbetrieb für 6h aktivieren**.
+
+#### C. Unterscheidung zwischen Widget-Klick und KNX-Bus
+* Ein Klick im MainUI-Widget ruft `handleCommand(channelUID, command)` auf.
+* Dies wird als `isExplicitCommand = true` markiert:
+  * Manuelle Klicks im openHAB Widget greifen **immer**, unabhängig davon, ob die Checkbox "KNX Handbetrieb erlauben" aktiv ist.
+  * Der neue Modus wird sofort im openHAB-Item bestätigt und an den KNX-Bus weitergeleitet.
+
+---
+
+### 5.3 Implementierte Lösungen
+
+#### Datei: `src/main/java/org/openhab/binding/churchtoolsheating/internal/ChurchToolsHandlerFactory.java`
+* Registrierung auf den EventBus auf **ausschließlich** `Collections.singleton(ItemStateChangedEvent.TYPE)` reduziert.
+* `ItemCommandEvent` und `ItemStateEvent` vollständig entfernt. Eigene Befehle werden niemals abgefangen; der Event-Loop ist dauerhaft ausgeschlossen.
+* Dynamische Anbindung an die openHAB `ItemChannelLinkRegistry`: Verknüpfte KNX-Items werden out-of-the-box ohne manuelle Rules oder Profile erkannt.
+
+#### Datei: `src/main/java/org/openhab/binding/churchtoolsheating/internal/RoomHeaterHandler.java`
+1. **Explizite vs. Externe Befehle (`isExplicitCommand`):**
+   * `handleCommand`: Übergibt `isExplicitCommand = true` (Widget / Rule / REST-API).
+   * `receive` / `onItemNameStateChanged`: Übergibt `isExplicitCommand = false` (KNX-Bus).
+2. **Sollwert-Handbetrieb (`CHANNEL_ACTUATOR_TARGET_TEMP`):**
+   * Löst Handbetrieb nur aus, wenn die Automatik im Ruhezustand ist (`targetRelayState == OFF`) und die Temperatur über `offTemperature + 0.4 °C` gedreht wird.
+   * Wird die Temperatur auf oder unter `offTemperature` (z. B. 12 °C oder 17 °C) abgesenkt, wird der Handbetrieb sofort beendet und das Relais ausgeschaltet.
+3. **HVAC-Modus-Handbetrieb (`CHANNEL_HVAC_MODE`):**
+   * Modi 1 (Komfort) und 2 (Standby) aktivieren 6 Stunden Handbetrieb (`manualOverrideUntil`), schalten Relais `ON` und setzen Solltemperatur.
+   * Modi 3 (Nacht) und 4 (Frost) löschen `manualOverrideUntil` sofort und schalten Relais `OFF`.
+   * Bei aktivem Termin-Heizen (`targetRelayState == ON && mode == 1`) wird kein Handbetrieb ausgelöst.
+4. **Timeout-Rückkehr:**
+   * Nach Ablauf der 6 Stunden kehrt der Raum automatisch zum regulären Zeitplan zurück.
+
+#### Datei: `src/main/resources/OH-INF/thing/thing-types.xml`
+* `enableExternalManualMode`: Checkbox "KNX Handbetrieb erlauben" (Default: `true`).
+* `externalManualModeDuration`: Dauer in Stunden (Default: `6`).
+* Optionale direkte Item-Zuordnung: `knxHvacModeItem`, `knxTargetTempItem`, `knxCurrentTempItem`.
+
+---
+
+## 6. Wichtige Wiederherstellungspunkte (Git Recovery Points)
+
+Falls in künftigen Chat-Verläufen ein bestimmter Stand wiederhergestellt werden soll:
+
+| Commit | Beschreibung | Zustand |
+|---|---|---|
+| **`e166536`** | **Aktueller stabiler Stand (10.11.2026):** Loop-Fix, stabiles KNX-Gateway, `isExplicitCommand` für Widget, 6h Handbetrieb via KNX & Widget, keine CPU-Last. | **Empfohlen / Produktiv** |
+| `dd5dbbe` | Stand vom 10.11.2026 morgens (vor dem Loop-Fix). | Stabil, aber noch ohne die Widget-Entkopplung. |
+| `1b46a3a` | Stand vor Einführung des EventSubscribers. | Rein kanalbasiert ohne direkte EventBus-Lauschung. |
+
+### Build-Befehl zur Wiederherstellung:
+```powershell
+& "C:\Users\jkid\.m2\wrapper\dists\apache-maven-3.9.16\0daed3be3ebd1c706f0e69e8b07c6b73f5cc4ea3dfce72a8d0ec2e849ca2ddb0\bin\mvn.cmd" clean package -DskipTests
+```
+Artefakt: `target/org.openhab.binding.churchtoolsheating-5.2.1-SNAPSHOT.jar`
+
+
