@@ -141,7 +141,7 @@
             <parameter name="enableExternalManualMode" type="boolean">
                 <label>KNX Handbetrieb erlauben</label>
                 <description>Aktiviert die Erkennung, ob der KNX Taster im Raum manuell umgeschaltet wurde, um die Automatik zu pausieren.</description>
-                <default>false</default>
+                <default>true</default>
                 <advanced>false</advanced>
             </parameter>
 

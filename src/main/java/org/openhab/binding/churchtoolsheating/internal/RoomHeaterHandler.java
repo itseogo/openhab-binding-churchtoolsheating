@@ -98,7 +98,7 @@ public class RoomHeaterHandler extends BaseThingHandler {
     @Override
     public void handleCommand(ChannelUID channelUID, Command command) {
         if (command instanceof State) {
-            processChannelState(channelUID.getId(), (State) command);
+            processChannelState(channelUID.getId(), (State) command, true);
         }
     }
 
@@ -110,18 +110,23 @@ public class RoomHeaterHandler extends BaseThingHandler {
 
         if (hvacCfg != null && itemName.equalsIgnoreCase(hvacCfg.toString().trim())) {
             logger.info("RoomHeater [{}] matched knxHvacModeItem {}: state={}", getThing().getUID().getId(), itemName, state);
-            processChannelState(ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE, state);
+            processChannelState(ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE, state, false);
         } else if (targetCfg != null && itemName.equalsIgnoreCase(targetCfg.toString().trim())) {
             logger.info("RoomHeater [{}] matched knxTargetTempItem {}: state={}", getThing().getUID().getId(), itemName, state);
-            processChannelState(ChurchToolsHeatingBindingConstants.CHANNEL_ACTUATOR_TARGET_TEMP, state);
+            processChannelState(ChurchToolsHeatingBindingConstants.CHANNEL_ACTUATOR_TARGET_TEMP, state, false);
         } else if (currentCfg != null && itemName.equalsIgnoreCase(currentCfg.toString().trim())) {
             logger.info("RoomHeater [{}] matched knxCurrentTempItem {}: state={}", getThing().getUID().getId(), itemName, state);
-            processChannelState(ChurchToolsHeatingBindingConstants.CHANNEL_CURRENT_TEMPERATURE, state);
+            processChannelState(ChurchToolsHeatingBindingConstants.CHANNEL_CURRENT_TEMPERATURE, state, false);
         }
     }
 
-    public synchronized void processChannelState(String channelId, State state) {
-        logger.debug("RoomHeater [{}] processChannelState: channelId={}, state={}", getThing().getUID().getId(), channelId, state);
+    public void processChannelState(String channelId, State state) {
+        processChannelState(channelId, state, false);
+    }
+
+    public synchronized void processChannelState(String channelId, State state, boolean isExplicitCommand) {
+        logger.debug("RoomHeater [{}] processChannelState: channelId={}, state={}, isExplicit={}",
+                getThing().getUID().getId(), channelId, state, isExplicitCommand);
         switch (channelId) {
                 case ChurchToolsHeatingBindingConstants.CHANNEL_CURRENT_TEMPERATURE:
                     if (state instanceof QuantityType) {
@@ -224,12 +229,12 @@ public class RoomHeaterHandler extends BaseThingHandler {
                     }
                     
                     if (newMode != null) {
-                        boolean enableExternalManualMode = getBooleanConfig("enableExternalManualMode", false);
+                        boolean enableExternalManualMode = getBooleanConfig("enableExternalManualMode", true);
                         java.math.BigDecimal currentExpectedMode = expectedHvacMode != null ? expectedHvacMode : java.math.BigDecimal.valueOf(getIntConfig("offHvacMode", 3));
-                        if (enableExternalManualMode && newMode.compareTo(currentExpectedMode) != 0) {
+                        if ((isExplicitCommand || enableExternalManualMode) && newMode.compareTo(currentExpectedMode) != 0) {
                             // If the automation is currently in a scheduled heating phase (targetRelayState == ON) and mode is 1 (Komfort),
                             // this is the automation doing its job, NOT a manual override!
-                            if (targetRelayState == OnOffType.ON && newMode.intValue() == 1) {
+                            if (!isExplicitCommand && targetRelayState == OnOffType.ON && newMode.intValue() == 1) {
                                 logger.debug("HVAC Mode 1 matches active event heating phase for resource {}. Skipping manual override.", getConfig().get("resourceId"));
                             } else {
                                 if (newMode.intValue() == 1 || newMode.intValue() == 2) {
@@ -238,18 +243,23 @@ public class RoomHeaterHandler extends BaseThingHandler {
                                     updateState(ChurchToolsHeatingBindingConstants.CHANNEL_MANUAL_OVERRIDE_UNTIL, new DateTimeType(manualOverrideUntil));
                                     updateRelay(OnOffType.ON);
                                     updateActuatorTargetTemp(targetTemp);
-                                    logger.info("External HVAC ON override detected for resource {}. Suspending automation for {} hours until {}", getConfig().get("resourceId"), overrideHours, manualOverrideUntil);
+                                    logger.info("HVAC ON override detected for resource {} (explicit={}). Suspending automation for {} hours until {}",
+                                            getConfig().get("resourceId"), isExplicitCommand, overrideHours, manualOverrideUntil);
                                 } else if (newMode.intValue() == 3 || newMode.intValue() == 4) {
                                     manualOverrideUntil = null;
                                     updateState(ChurchToolsHeatingBindingConstants.CHANNEL_MANUAL_OVERRIDE_UNTIL, UnDefType.UNDEF);
                                     updateRelay(OnOffType.OFF);
                                     updateActuatorTargetTemp(getDoubleConfig("offTemperature", 17.0));
-                                    logger.info("External HVAC OFF override detected for resource {}. Manual override cleared, heating turned OFF.", getConfig().get("resourceId"));
+                                    logger.info("HVAC OFF override detected for resource {} (explicit={}). Manual override cleared, heating turned OFF.",
+                                            getConfig().get("resourceId"), isExplicitCommand);
                                 }
                             }
                         }
                         expectedHvacMode = newMode;
-                        // Do NOT call updateState here to prevent infinite loop with Follow Profile / Item feedback
+                        updateState(ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE, new DecimalType(newMode));
+                        if (isExplicitCommand) {
+                            getCallback().postCommand(new ChannelUID(getThing().getUID(), ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE), new DecimalType(newMode));
+                        }
                     }
                     break;
             }
