@@ -27,3 +27,4 @@ public class ChurchToolsHandlerFactoryTest {
         assertTrue(subscribed.contains(ItemStateChangedEvent.TYPE));
     }
 }
+

@@ -238,8 +238,13 @@ public class RoomHeaterHandlerTest {
             any(DateTimeType.class)
         );
         verify(callback, atLeastOnce()).postCommand(
+            eq(new ChannelUID(thingUID, ChurchToolsHeatingBindingConstants.CHANNEL_HEATING_RELAY)),
+            eq(OnOffType.ON)
+        );
+        // Ensure no echo postCommand on HVAC_MODE to avoid infinite command storms
+        verify(callback, never()).postCommand(
             eq(new ChannelUID(thingUID, ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE)),
-            eq(new DecimalType(1))
+            any()
         );
     }
 
@@ -301,5 +306,27 @@ public class RoomHeaterHandlerTest {
             eq(new ChannelUID(thingUID, ChurchToolsHeatingBindingConstants.CHANNEL_HEATING_RELAY)),
             eq(OnOffType.ON)
         );
+    }
+
+    @Test
+    public void testNoLoopOnIdenticalHvacModeOrDisplayChannels() throws Exception {
+        when(api.getBookings(eq(5), anyBoolean())).thenReturn(new ArrayList<>());
+        handler.processChannelState(ChurchToolsHeatingBindingConstants.CHANNEL_TARGET_TEMPERATURE, new DecimalType(21.0));
+
+        // Now the room is initialized and in idle offHvacMode (3)
+        reset(callback);
+
+        // Sending mode 3 again (e.g. from KNX bus update or echo) must NOT trigger any postCommand or state change
+        handler.processChannelState(ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE, new DecimalType(3), false);
+
+        verify(callback, never()).postCommand(any(), any());
+        verify(callback, never()).stateUpdated(eq(new ChannelUID(thingUID, ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE)), any());
+
+        // Sending an update to a display channel (e.g. upcomingEvent1) must NOT trigger heating evaluation or commands
+        reset(callback);
+        handler.processChannelState(ChurchToolsHeatingBindingConstants.CHANNEL_UPCOMING_EVENT_1, new StringType("Gottesdienst"), false);
+
+        verify(callback, never()).postCommand(any(), any());
+        verify(callback, never()).stateUpdated(any(), any());
     }
 }

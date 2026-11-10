@@ -127,52 +127,76 @@ public class RoomHeaterHandler extends BaseThingHandler {
                 getThing().getUID().getId(), channelId, state, isExplicitCommand);
         switch (channelId) {
                 case ChurchToolsHeatingBindingConstants.CHANNEL_CURRENT_TEMPERATURE:
+                    double newCurrentTemp = -1;
                     if (state instanceof QuantityType) {
-                        currentTemp = ((QuantityType<?>) state).toBigDecimal().doubleValue();
+                        newCurrentTemp = ((QuantityType<?>) state).toBigDecimal().doubleValue();
                     } else if (state instanceof DecimalType) {
-                        currentTemp = ((DecimalType) state).toBigDecimal().doubleValue();
+                        newCurrentTemp = ((DecimalType) state).toBigDecimal().doubleValue();
                     } else if (state instanceof StringType) {
                         try {
-                            currentTemp = Double.parseDouble(state.toString().replaceAll("[^0-9.-]", ""));
+                            newCurrentTemp = Double.parseDouble(state.toString().replaceAll("[^0-9.-]", ""));
                         } catch (NumberFormatException e) {}
                     }
-                    // Do NOT call updateState here to prevent infinite loop with Follow Profile / Item feedback
+                    if (newCurrentTemp > 0) {
+                        if (Math.abs(currentTemp - newCurrentTemp) >= 0.05) {
+                            currentTemp = newCurrentTemp;
+                            evaluateHeatingLogic();
+                        }
+                    }
                     break;
                 case ChurchToolsHeatingBindingConstants.CHANNEL_TARGET_TEMPERATURE:
+                    double newTargetTemp = -1;
                     if (state instanceof QuantityType) {
-                        targetTemp = ((QuantityType<?>) state).toBigDecimal().doubleValue();
+                        newTargetTemp = ((QuantityType<?>) state).toBigDecimal().doubleValue();
                     } else if (state instanceof DecimalType) {
-                        targetTemp = ((DecimalType) state).toBigDecimal().doubleValue();
+                        newTargetTemp = ((DecimalType) state).toBigDecimal().doubleValue();
                     } else if (state instanceof StringType) {
                         try {
-                            targetTemp = Double.parseDouble(state.toString().replaceAll("[^0-9.-]", ""));
+                            newTargetTemp = Double.parseDouble(state.toString().replaceAll("[^0-9.-]", ""));
                         } catch (NumberFormatException e) {}
                     }
-                    // Do NOT call updateState here to prevent infinite loop with Follow Profile / Item feedback
+                    if (newTargetTemp > 0) {
+                        if (Math.abs(targetTemp - newTargetTemp) >= 0.05) {
+                            targetTemp = newTargetTemp;
+                            evaluateHeatingLogic();
+                        }
+                    }
                     break;
                 case ChurchToolsHeatingBindingConstants.CHANNEL_SUMMER_MODE:
+                    boolean newSummer = summerMode;
                     if (state instanceof OnOffType) {
-                        summerMode = state == OnOffType.ON;
+                        newSummer = state == OnOffType.ON;
                     } else if (state instanceof StringType) {
-                        summerMode = state.toString().equalsIgnoreCase("ON");
+                        newSummer = state.toString().equalsIgnoreCase("ON");
                     }
-                    updateState(ChurchToolsHeatingBindingConstants.CHANNEL_SUMMER_MODE, summerMode ? OnOffType.ON : OnOffType.OFF);
+                    if (newSummer != summerMode) {
+                        summerMode = newSummer;
+                        updateState(ChurchToolsHeatingBindingConstants.CHANNEL_SUMMER_MODE, summerMode ? OnOffType.ON : OnOffType.OFF);
+                        evaluateHeatingLogic();
+                    }
                     break;
                 case ChurchToolsHeatingBindingConstants.CHANNEL_HEATING_ENABLED:
+                    boolean newEnabled = heatingEnabled;
                     if (state instanceof OnOffType || state instanceof StringType) {
-                        heatingEnabled = state.toString().equalsIgnoreCase("ON");
-                        // Reset any active manual override when automation is toggled
+                        newEnabled = state.toString().equalsIgnoreCase("ON");
+                    }
+                    if (newEnabled != heatingEnabled) {
+                        heatingEnabled = newEnabled;
                         manualOverrideUntil = null;
                         previousTargetRelayState = OnOffType.OFF;
                         updateState(ChurchToolsHeatingBindingConstants.CHANNEL_MANUAL_OVERRIDE_UNTIL, UnDefType.UNDEF);
+                        updateState(ChurchToolsHeatingBindingConstants.CHANNEL_HEATING_ENABLED, heatingEnabled ? OnOffType.ON : OnOffType.OFF);
+                        evaluateHeatingLogic();
                     }
-                    updateState(ChurchToolsHeatingBindingConstants.CHANNEL_HEATING_ENABLED, heatingEnabled ? OnOffType.ON : OnOffType.OFF);
                     break;
                 case ChurchToolsHeatingBindingConstants.CHANNEL_MANUAL_OVERRIDE_UNTIL:
                     if (state instanceof UnDefType || (state instanceof StringType && state.toString().equals("UNDEF"))) {
-                        manualOverrideUntil = null;
-                        updateState(ChurchToolsHeatingBindingConstants.CHANNEL_MANUAL_OVERRIDE_UNTIL, UnDefType.UNDEF);
-                        logger.info("Manual override was explicitly reset by user.");
+                        if (manualOverrideUntil != null) {
+                            manualOverrideUntil = null;
+                            updateState(ChurchToolsHeatingBindingConstants.CHANNEL_MANUAL_OVERRIDE_UNTIL, UnDefType.UNDEF);
+                            logger.info("Manual override was explicitly reset by user.");
+                            evaluateHeatingLogic();
+                        }
                     }
                     break;
                 case ChurchToolsHeatingBindingConstants.CHANNEL_ACTUATOR_TARGET_TEMP:
@@ -190,6 +214,7 @@ public class RoomHeaterHandler extends BaseThingHandler {
                         boolean enableExternalManualMode = getBooleanConfig("enableExternalManualMode", false);
                         double offTemp = getDoubleConfig("offTemperature", 17.0);
                         double currentExpected = expectedActuatorTargetTemp != null ? expectedActuatorTargetTemp : offTemp;
+                        boolean tempChanged = (expectedActuatorTargetTemp == null || Math.abs(expectedActuatorTargetTemp - newActuatorTemp) >= 0.1);
                         
                         if (enableExternalManualMode) {
                             // If automation is currently idle (no scheduled event heating) and someone turns temperature UP above offTemp:
@@ -225,6 +250,9 @@ public class RoomHeaterHandler extends BaseThingHandler {
                             }
                         }
                         expectedActuatorTargetTemp = newActuatorTemp;
+                        if (tempChanged) {
+                            evaluateHeatingLogic();
+                        }
                     }
                     break;
                 case ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE:
@@ -240,6 +268,8 @@ public class RoomHeaterHandler extends BaseThingHandler {
                     if (newMode != null) {
                         boolean enableExternalManualMode = getBooleanConfig("enableExternalManualMode", true);
                         java.math.BigDecimal currentExpectedMode = expectedHvacMode != null ? expectedHvacMode : java.math.BigDecimal.valueOf(getIntConfig("offHvacMode", 3));
+                        boolean modeChanged = (expectedHvacMode == null || newMode.compareTo(expectedHvacMode) != 0);
+
                         if ((isExplicitCommand || enableExternalManualMode) && newMode.compareTo(currentExpectedMode) != 0) {
                             // If the automation is currently in a scheduled heating phase (targetRelayState == ON) and mode is 1 (Komfort),
                             // and NO manual override was active, this is the automation doing its job, NOT a manual override!
@@ -287,15 +317,13 @@ public class RoomHeaterHandler extends BaseThingHandler {
                             }
                         }
                         expectedHvacMode = newMode;
-                        updateState(ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE, new DecimalType(newMode));
-                        if (isExplicitCommand) {
-                            getCallback().postCommand(new ChannelUID(getThing().getUID(), ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE), new DecimalType(newMode));
+                        if (modeChanged) {
+                            updateState(ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE, new DecimalType(newMode));
+                            evaluateHeatingLogic();
                         }
                     }
                     break;
-            }
-            // Re-evaluate logic if inputs change
-            evaluateHeatingLogic();
+        }
     }
 
     private void evaluateHeatingLogic() {

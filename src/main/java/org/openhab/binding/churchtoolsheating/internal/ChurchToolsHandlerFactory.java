@@ -1,6 +1,7 @@
 package org.openhab.binding.churchtoolsheating.internal;
 
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -86,6 +87,7 @@ public class ChurchToolsHandlerFactory extends BaseThingHandlerFactory implement
             State newState = stateChangedEvent.getItemState();
 
             if (itemName != null && newState != null) {
+                Set<ThingUID> handledThings = new HashSet<>();
                 ItemChannelLinkRegistry registry = this.linkRegistry;
                 if (registry != null) {
                     Set<ChannelUID> boundChannels = registry.getBoundChannels(itemName);
@@ -93,14 +95,17 @@ public class ChurchToolsHandlerFactory extends BaseThingHandlerFactory implement
                         for (ChannelUID channelUID : boundChannels) {
                             RoomHeaterHandler handler = activeHandlers.get(channelUID.getThingUID());
                             if (handler != null) {
+                                handledThings.add(channelUID.getThingUID());
                                 handler.processChannelState(channelUID.getId(), newState, false);
                             }
                         }
                     }
                 }
 
-                for (RoomHeaterHandler handler : activeHandlers.values()) {
-                    handler.onItemNameStateChanged(itemName, newState);
+                for (Map.Entry<ThingUID, RoomHeaterHandler> entry : activeHandlers.entrySet()) {
+                    if (!handledThings.contains(entry.getKey())) {
+                        entry.getValue().onItemNameStateChanged(itemName, newState);
+                    }
                 }
             }
         }

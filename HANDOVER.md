@@ -130,6 +130,21 @@ Number:Temperature Raum_Saal_currentTemperature "Ist-Temperatur [%.1f °C]" {
   * Manuelle Klicks im openHAB Widget greifen **immer**, unabhängig davon, ob die Checkbox "KNX Handbetrieb erlauben" aktiv ist.
   * Der neue Modus wird sofort im openHAB-Item bestätigt und an den KNX-Bus weitergeleitet.
 
+#### D. Befehls-Echo & Unbedingte Neuberechnung (Der Vorfall am Abend des 10.11.2026)
+* **Symptom:** openHAB-Log wurde mit hunderten `ItemCommandEvent` und `ItemStatePredictedEvent` überflutet:
+  `Item 'Heizung_Seminar_Betriebsart' received command 3.0`
+  `Item 'Heizung_Saal_HAVC_item' received command 3`
+  `Item 'Heizung_Jugendraum' received command 1` usw., mehrfach pro Sekunde quer über alle Räume.
+* **Ursachen:**
+  1. In `RoomHeaterHandler.java` rief `processChannelState` bei `isExplicitCommand == true` unkonditioniert `getCallback().postCommand(...)` auf `CHANNEL_HVAC_MODE` auf. Bei jedem Klick oder jeder Rückkopplung an `handleCommand()` wurde derselbe Befehl wieder an openHAB zurückgepostet -> Ping-Pong-Schleife zwischen ThingManager und Handler.
+  2. Am Ende von `processChannelState()` wurde unkonditioniert `evaluateHeatingLogic()` aufgerufen – selbst wenn sich der Eingangswert gar nicht geändert hatte oder es sich um Anzeige-Channels (`upcomingEvent1`, etc.) handelte.
+  3. In `ChurchToolsHandlerFactory.java` wurden Items doppelt verarbeitet, wenn sie sowohl via `ItemChannelLinkRegistry` gebunden als auch in `knxHvacModeItem` konfiguriert waren.
+* **Behebung:**
+  1. Redundantes `postCommand` bei `isExplicitCommand` in `processChannelState` entfernt. Der openHAB ThingManager/Bus verteilt UI-Befehle bereits selbst.
+  2. `evaluateHeatingLogic()` wird nur noch bei **tatsächlicher Wertänderung** relevanter Steuerkanäle (`currentTemp`, `targetTemp`, `summerMode`, `heatingEnabled`, `actuatorTargetTemp`, `hvacMode`) ausgeführt. Reine Anzeige-Kanäle lösen keine Berechnungen mehr aus.
+  3. `ChurchToolsHandlerFactory` trackt verarbeitete Things pro Event (`handledThings`), sodass ein Handler pro Item-Statuswechsel nie mehrfach aufgerufen wird.
+  4. Alle 14 Unit-Tests (inklusive Loop-Prüfung) erfolgreich.
+
 ---
 
 ### 5.3 Implementierte Lösungen
