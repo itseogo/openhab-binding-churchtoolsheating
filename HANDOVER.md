@@ -147,9 +147,13 @@ Number:Temperature Raum_Saal_currentTemperature "Ist-Temperatur [%.1f °C]" {
    * Löst Handbetrieb nur aus, wenn die Automatik im Ruhezustand ist (`targetRelayState == OFF`) und die Temperatur über `offTemperature + 0.4 °C` gedreht wird.
    * Wird die Temperatur auf oder unter `offTemperature` (z. B. 12 °C oder 17 °C) abgesenkt, wird der Handbetrieb sofort beendet und das Relais ausgeschaltet.
 3. **HVAC-Modus-Handbetrieb (`CHANNEL_HVAC_MODE`):**
-   * Modi 1 (Komfort) und 2 (Standby) aktivieren 6 Stunden Handbetrieb (`manualOverrideUntil`), schalten Relais `ON` und setzen Solltemperatur.
-   * Modi 3 (Nacht) und 4 (Frost) löschen `manualOverrideUntil` sofort und schalten Relais `OFF`.
-   * Bei aktivem Termin-Heizen (`targetRelayState == ON && mode == 1`) wird kein Handbetrieb ausgelöst.
+   * **Außerhalb eines Termins (`targetRelayState == OFF`):**
+     * Modus 1 (Komfort) oder 2 (Standby) aktiviert 6 Stunden Handbetrieb (`manualOverrideUntil`), schaltet Relais `ON`.
+     * Modus 3 (Nacht) oder 4 (Frost) löscht `manualOverrideUntil` und schaltet Relais `OFF`.
+   * **Während eines aktiven Termins (`targetRelayState == ON`):**
+     * Modus 3 (Nacht) oder 4 (Frost) aktiviert einen **manuellen AUS-Handbetrieb** für 6 Stunden: Relais bleibt `OFF`, Modus bleibt `Nacht (3)`, die Automatik wird gesperrt und schaltet nicht mehr sofort wieder auf Komfort zurück (kein Hin- und Herspringen!).
+     * Modus 1 (Komfort) beendet den AUS-Handbetrieb (`manualOverrideUntil = null`) und nimmt das normale Heizen für den Termin wieder auf.
+   * Bei regulärem Heizbeginn der Automatik (`manualOverrideUntil == null && targetRelayState == ON && mode == 1`) wird kein Handbetrieb ausgelöst.
 4. **Timeout-Rückkehr:**
    * Nach Ablauf der 6 Stunden kehrt der Raum automatisch zum regulären Zeitplan zurück.
 
@@ -166,7 +170,8 @@ Falls in künftigen Chat-Verläufen ein bestimmter Stand wiederhergestellt werde
 
 | Commit | Beschreibung | Zustand |
 |---|---|---|
-| **`e166536`** | **Aktueller stabiler Stand (10.11.2026):** Loop-Fix, stabiles KNX-Gateway, `isExplicitCommand` für Widget, 6h Handbetrieb via KNX & Widget, keine CPU-Last. | **Empfohlen / Produktiv** |
+| **Aktuell (HEAD)** | **Manueller AUS-Handbetrieb während Termin:** Kein Hin- und Herspringen mehr bei Nacht-Schaltung während Termin, Loop-Fix, stabiles KNX-Gateway, 6h Handbetrieb via KNX & Widget. | **Empfohlen / Produktiv** |
+| `e166536` | Stand mit Loop-Fix und EventSubscriber-Bereinigung. | Stabil, aber Nacht während Termin setzte Override noch zurück. |
 | `dd5dbbe` | Stand vom 10.11.2026 morgens (vor dem Loop-Fix). | Stabil, aber noch ohne die Widget-Entkopplung. |
 | `1b46a3a` | Stand vor Einführung des EventSubscribers. | Rein kanalbasiert ohne direkte EventBus-Lauschung. |
 
