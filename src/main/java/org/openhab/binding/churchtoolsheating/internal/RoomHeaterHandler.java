@@ -34,6 +34,7 @@ public class RoomHeaterHandler extends BaseThingHandler {
     private boolean summerMode = false;
     private boolean heatingEnabled = true;
     private OnOffType relayState = OnOffType.OFF;
+    private OnOffType targetRelayState = OnOffType.OFF;
 
     private ZonedDateTime manualOverrideUntil = null;
     private java.math.BigDecimal expectedHvacMode = null;
@@ -159,6 +160,7 @@ public class RoomHeaterHandler extends BaseThingHandler {
                         heatingEnabled = state.toString().equalsIgnoreCase("ON");
                         // Reset any active manual override when automation is toggled
                         manualOverrideUntil = null;
+                        previousTargetRelayState = OnOffType.OFF;
                         updateState(ChurchToolsHeatingBindingConstants.CHANNEL_MANUAL_OVERRIDE_UNTIL, UnDefType.UNDEF);
                     }
                     updateState(ChurchToolsHeatingBindingConstants.CHANNEL_HEATING_ENABLED, heatingEnabled ? OnOffType.ON : OnOffType.OFF);
@@ -181,29 +183,8 @@ public class RoomHeaterHandler extends BaseThingHandler {
                             newActuatorTemp = Double.parseDouble(state.toString().replaceAll("[^0-9.-]", ""));
                         } catch (NumberFormatException e) {}
                     }
-                    
                     if (newActuatorTemp > 0) {
-                        boolean enableExternalManualMode = getBooleanConfig("enableExternalManualMode", true);
-                        double currentExpected = expectedActuatorTargetTemp != null ? expectedActuatorTargetTemp : getDoubleConfig("offTemperature", 17.0);
-                        if (enableExternalManualMode && Math.abs(newActuatorTemp - currentExpected) >= 0.3) {
-                            int overrideHours = getIntConfig("externalManualModeDuration", 6);
-                            manualOverrideUntil = ZonedDateTime.now().plusHours(overrideHours);
-                            updateState(ChurchToolsHeatingBindingConstants.CHANNEL_MANUAL_OVERRIDE_UNTIL, new DateTimeType(manualOverrideUntil));
-                            
-                            double offTemp = getDoubleConfig("offTemperature", 17.0);
-                            if (newActuatorTemp > offTemp) {
-                                updateRelay(OnOffType.ON);
-                                updateHvacMode(java.math.BigDecimal.valueOf(1)); // Komfort
-                            } else {
-                                updateRelay(OnOffType.OFF);
-                                updateHvacMode(java.math.BigDecimal.valueOf(getIntConfig("offHvacMode", 3))); // Nacht
-                            }
-                            
-                            logger.info("External Setpoint override detected for resource {}. Temp changed from {} to {}. Suspending automation for {} hours until {}",
-                                    getConfig().get("resourceId"), currentExpected, newActuatorTemp, overrideHours, manualOverrideUntil);
-                        }
                         expectedActuatorTargetTemp = newActuatorTemp;
-                        // Do NOT call updateState here to prevent infinite loop with Follow Profile / Item feedback
                     }
                     break;
                 case ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE:
@@ -217,22 +198,28 @@ public class RoomHeaterHandler extends BaseThingHandler {
                     }
                     
                     if (newMode != null) {
-                        boolean enableExternalManualMode = getBooleanConfig("enableExternalManualMode", true);
+                        boolean enableExternalManualMode = getBooleanConfig("enableExternalManualMode", false);
                         java.math.BigDecimal currentExpectedMode = expectedHvacMode != null ? expectedHvacMode : java.math.BigDecimal.valueOf(getIntConfig("offHvacMode", 3));
                         if (enableExternalManualMode && newMode.compareTo(currentExpectedMode) != 0) {
-                            int overrideHours = getIntConfig("externalManualModeDuration", 6);
-                            manualOverrideUntil = ZonedDateTime.now().plusHours(overrideHours);
-                            updateState(ChurchToolsHeatingBindingConstants.CHANNEL_MANUAL_OVERRIDE_UNTIL, new DateTimeType(manualOverrideUntil));
-                            
-                            if (newMode.intValue() == 1 || newMode.intValue() == 2) {
-                                updateRelay(OnOffType.ON);
-                                updateActuatorTargetTemp(targetTemp);
-                            } else if (newMode.intValue() == 3 || newMode.intValue() == 4) {
-                                updateRelay(OnOffType.OFF);
-                                updateActuatorTargetTemp(getDoubleConfig("offTemperature", 17.0));
+                            // If the automation is currently in a scheduled heating phase (targetRelayState == ON) and mode is 1 (Komfort),
+                            // this is the automation doing its job, NOT a manual override!
+                            if (targetRelayState == OnOffType.ON && newMode.intValue() == 1) {
+                                logger.debug("HVAC Mode 1 matches active event heating phase for resource {}. Skipping manual override.", getConfig().get("resourceId"));
+                            } else {
+                                int overrideHours = getIntConfig("externalManualModeDuration", 6);
+                                manualOverrideUntil = ZonedDateTime.now().plusHours(overrideHours);
+                                updateState(ChurchToolsHeatingBindingConstants.CHANNEL_MANUAL_OVERRIDE_UNTIL, new DateTimeType(manualOverrideUntil));
+                                
+                                if (newMode.intValue() == 1 || newMode.intValue() == 2) {
+                                    updateRelay(OnOffType.ON);
+                                    updateActuatorTargetTemp(targetTemp);
+                                } else if (newMode.intValue() == 3 || newMode.intValue() == 4) {
+                                    updateRelay(OnOffType.OFF);
+                                    updateActuatorTargetTemp(getDoubleConfig("offTemperature", 17.0));
+                                }
+                                
+                                logger.info("External HVAC override detected for resource {}. Suspending automation for {} hours until {}", getConfig().get("resourceId"), overrideHours, manualOverrideUntil);
                             }
-                            
-                            logger.info("External HVAC override detected for resource {}. Suspending automation for {} hours until {}", getConfig().get("resourceId"), overrideHours, manualOverrideUntil);
                         }
                         expectedHvacMode = newMode;
                         // Do NOT call updateState here to prevent infinite loop with Follow Profile / Item feedback
@@ -374,7 +361,6 @@ public class RoomHeaterHandler extends BaseThingHandler {
                     targetTemp, currentTemp, (targetTemp - currentTemp), vorlaufH, vorlaufInMinuten, eventStart, vorlaufZeit);
 
             // 3. Control logic
-            OnOffType targetRelayState;
             if (summerMode || !heatingEnabled) {
                 targetRelayState = OnOffType.OFF;
             } else if (now.isAfter(vorlaufZeit) && now.isBefore(eventEnd)) {
