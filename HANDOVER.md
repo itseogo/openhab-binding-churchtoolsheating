@@ -204,8 +204,11 @@ Falls in künftigen Chat-Verläufen ein bestimmter Stand wiederhergestellt werde
 
 | Commit | Beschreibung | Zustand |
 |---|---|---|
-| **Aktuell (HEAD)** | **Manueller AUS-Handbetrieb während Termin:** Kein Hin- und Herspringen mehr bei Nacht-Schaltung während Termin, Loop-Fix, stabiles KNX-Gateway, 6h Handbetrieb via KNX & Widget. | **Empfohlen / Produktiv** |
-| `e166536` | Stand mit Loop-Fix und EventSubscriber-Bereinigung. | Stabil, aber Nacht während Termin setzte Override noch zurück. |
+| **`c6aebb5` (Aktuell / HEAD)** | **Komplett-Stand (16.11.2026):** Bidirektionale Steuerung direkter KNX-Items (`EventPublisher`), Schutz des Nacht-Handbetriebs gegen 12 °C-Aktor-Echo, Startup-Sync persistierter Item-Werte (`ItemRegistry` / `ItemChannelLinkRegistry`), Command-Storm-Fix, 16 Unit-Tests. | **Empfohlen / Produktiv** |
+| `a22c4c3` | Fix gegen sofortiges Löschen des Nacht-Handbetriebs durch 12 °C-Sollwert-Rückmeldung während aktivem Termin. | Stabil, ohne Startup-Item-Sync. |
+| `27353ed` | Bidirektionale Steuerung für `knxHvacModeItem` und `knxTargetTempItem` via `EventPublisher`. | Stabil, aber 12 °C-Echo löschte Nacht-Override. |
+| `27a4357` | Command-Storm-Loop behoben (`postCommand`-Echo entfernt, bedarfsgesteuerte Neuberechnung, Factory-Deduplizierung). | Stabil, vor direkter KNX-Item-Sendung. |
+| `e166536` | Stand mit Loop-Fix und EventSubscriber-Bereinigung (10.11.2026). | Stabil, aber Nacht während Termin setzte Override noch zurück. |
 | `dd5dbbe` | Stand vom 10.11.2026 morgens (vor dem Loop-Fix). | Stabil, aber noch ohne die Widget-Entkopplung. |
 | `1b46a3a` | Stand vor Einführung des EventSubscribers. | Rein kanalbasiert ohne direkte EventBus-Lauschung. |
 
