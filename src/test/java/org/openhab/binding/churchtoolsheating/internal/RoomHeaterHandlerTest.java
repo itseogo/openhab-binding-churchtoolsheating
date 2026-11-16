@@ -13,6 +13,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.openhab.core.config.core.Configuration;
+import org.openhab.core.events.EventPublisher;
+import org.openhab.core.items.events.ItemCommandEvent;
 import org.openhab.core.library.types.DateTimeType;
 import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.library.types.OnOffType;
@@ -328,5 +330,42 @@ public class RoomHeaterHandlerTest {
 
         verify(callback, never()).postCommand(any(), any());
         verify(callback, never()).stateUpdated(any(), any());
+    }
+
+    @Test
+    public void testDirectKnxItemCommandsViaEventPublisher() throws Exception {
+        EventPublisher eventPublisher = mock(EventPublisher.class);
+        handler.setEventPublisher(eventPublisher);
+
+        config.put("knxHvacModeItem", "EK-Heizung-Betriebsart");
+        config.put("knxTargetTempItem", "Temperatur EK soll");
+
+        List<ChurchToolsAPI.Booking> bookings = new ArrayList<>();
+        ChurchToolsAPI.Booking activeBooking = new ChurchToolsAPI.Booking();
+        activeBooking.id = 999;
+        activeBooking.caption = "TESTBuchung";
+        activeBooking.startDate = ZonedDateTime.now().plusMinutes(10);
+        activeBooking.endDate = ZonedDateTime.now().plusHours(2);
+        bookings.add(activeBooking);
+        when(api.getBookings(eq(5), anyBoolean())).thenReturn(bookings);
+
+        handler.processChannelState(ChurchToolsHeatingBindingConstants.CHANNEL_TARGET_TEMPERATURE, new DecimalType(21.5));
+
+        // Verify direct command sent to EK-Heizung-Betriebsart (Komfort = 1)
+        ArgumentCaptor<ItemCommandEvent> eventCaptor = ArgumentCaptor.forClass(ItemCommandEvent.class);
+        verify(eventPublisher, atLeastOnce()).post(eventCaptor.capture());
+
+        boolean foundHvacModeCmd = false;
+        boolean foundTargetTempCmd = false;
+        for (ItemCommandEvent event : eventCaptor.getAllValues()) {
+            if ("EK-Heizung-Betriebsart".equals(event.getItemName()) && new DecimalType(1).equals(event.getItemCommand())) {
+                foundHvacModeCmd = true;
+            }
+            if ("Temperatur EK soll".equals(event.getItemName()) && new DecimalType(21.5).equals(event.getItemCommand())) {
+                foundTargetTempCmd = true;
+            }
+        }
+        assertTrue(foundHvacModeCmd, "Direct command to EK-Heizung-Betriebsart was not posted via EventPublisher");
+        assertTrue(foundTargetTempCmd, "Direct command to Temperatur EK soll was not posted via EventPublisher");
     }
 }

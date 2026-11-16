@@ -7,6 +7,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.openhab.core.events.Event;
+import org.openhab.core.events.EventPublisher;
 import org.openhab.core.events.EventSubscriber;
 import org.openhab.core.items.events.ItemStateChangedEvent;
 import org.openhab.core.thing.Bridge;
@@ -33,15 +34,39 @@ public class ChurchToolsHandlerFactory extends BaseThingHandlerFactory implement
     private final Map<ThingUID, RoomHeaterHandler> activeHandlers = new ConcurrentHashMap<>();
 
     private volatile ItemChannelLinkRegistry linkRegistry;
+    private volatile EventPublisher eventPublisher;
 
     @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC)
     public void setItemChannelLinkRegistry(ItemChannelLinkRegistry linkRegistry) {
         this.linkRegistry = linkRegistry;
+        for (RoomHeaterHandler handler : activeHandlers.values()) {
+            handler.setItemChannelLinkRegistry(linkRegistry);
+        }
     }
 
     public void unsetItemChannelLinkRegistry(ItemChannelLinkRegistry linkRegistry) {
         if (this.linkRegistry == linkRegistry) {
             this.linkRegistry = null;
+            for (RoomHeaterHandler handler : activeHandlers.values()) {
+                handler.setItemChannelLinkRegistry(null);
+            }
+        }
+    }
+
+    @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC)
+    public void setEventPublisher(EventPublisher eventPublisher) {
+        this.eventPublisher = eventPublisher;
+        for (RoomHeaterHandler handler : activeHandlers.values()) {
+            handler.setEventPublisher(eventPublisher);
+        }
+    }
+
+    public void unsetEventPublisher(EventPublisher eventPublisher) {
+        if (this.eventPublisher == eventPublisher) {
+            this.eventPublisher = null;
+            for (RoomHeaterHandler handler : activeHandlers.values()) {
+                handler.setEventPublisher(null);
+            }
         }
     }
 
@@ -59,6 +84,8 @@ public class ChurchToolsHandlerFactory extends BaseThingHandlerFactory implement
             return new ChurchToolsBridgeHandler((Bridge) thing);
         } else if (ChurchToolsHeatingBindingConstants.THING_TYPE_ROOM_HEATER.equals(thingTypeUID)) {
             RoomHeaterHandler handler = new RoomHeaterHandler(thing);
+            handler.setItemChannelLinkRegistry(this.linkRegistry);
+            handler.setEventPublisher(this.eventPublisher);
             activeHandlers.put(thing.getUID(), handler);
             return handler;
         }

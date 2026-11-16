@@ -180,6 +180,20 @@ Number:Temperature Raum_Saal_currentTemperature "Ist-Temperatur [%.1f °C]" {
 * `externalManualModeDuration`: Dauer in Stunden (Default: `6`).
 * Optionale direkte Item-Zuordnung: `knxHvacModeItem`, `knxTargetTempItem`, `knxCurrentTempItem`.
 
+### 5.5 Bidirektionale Steuerung konfigurierter KNX-Items (16. November 2026)
+
+* **Symptom:**
+  Im Elternkindraum startete das Vorheizen für einen Termin (`Status Relais: Ein (Heizt)`, `Sollwert Vorlauf: 21,5 °C`), aber auf dem KNX-Bus blieb der Aktor auf `Nacht` und `12,0 °C` stehen. Bei manuellem Klick auf die Widget-Buttons schaltete er sofort um. Der Saal funktionierte einwandfrei.
+* **Ursachenanalyse:**
+  1. Im Saal war das KNX-Item direkt mit dem openHAB-Channel `hvacMode` des Raum-Things verknüpft -> `callback.postCommand` erreichte den KNX-Bus.
+  2. Im Elternkindraum waren die KNX-Items in den Thing-Konfigurationsfeldern `knxHvacModeItem` (`EK-Heizung-Betriebsart`) und `knxTargetTempItem` (`Temperatur EK soll`) eingetragen, aber **nicht** mit den Thing-Channels verlinkt.
+  3. Das Binding lauschte bisher nur auf diese Items (`onItemNameStateChanged`), sendete bei Heizbeginn aber **keine Befehle** an sie hinaus.
+* **Implementierte Lösung:**
+  1. `EventPublisher` wird per OSGi Declarative Services in `ChurchToolsHandlerFactory` injiziert und an die `RoomHeaterHandler` übergeben.
+  2. In `updateHvacMode` und `updateActuatorTargetTemp` prüft das Binding nun, ob `knxHvacModeItem` bzw. `knxTargetTempItem` konfiguriert sind. Falls das Item nicht bereits mit dem entsprechenden Channel verknüpft ist, sendet das Binding den Schaltbefehl (`Komfort = 1` / `Nacht = 3`) und die Solltemperatur (`21,5 °C` / `12,0 °C`) per `EventPublisher.post(ItemEventFactory.createCommandEvent(...))` **direkt an das KNX-Item**!
+  3. Zusätzliche Absicherung: Bei `newActuatorTemp <= offTemp` wird nur dann ein manueller AUS-Handbetrieb ausgelöst, wenn die Solltemperatur zuvor tatsächlich im Heizbetrieb war (`currentExpected > offTemp + 0.4`).
+  4. Alle 15 Unit-Tests (inklusive Direct-KNX-Item-Befehlstest) erfolgreich.
+
 ---
 
 ## 6. Wichtige Wiederherstellungspunkte (Git Recovery Points)

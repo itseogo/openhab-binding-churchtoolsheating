@@ -4,10 +4,13 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 import org.openhab.core.config.core.Configuration;
+import org.openhab.core.events.EventPublisher;
+import org.openhab.core.items.events.ItemEventFactory;
 import org.openhab.core.library.types.DateTimeType;
 import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.library.types.OnOffType;
@@ -18,6 +21,7 @@ import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.Thing;
 import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.binding.BaseThingHandler;
+import org.openhab.core.thing.link.ItemChannelLinkRegistry;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.State;
 import org.openhab.core.types.UnDefType;
@@ -43,6 +47,47 @@ public class RoomHeaterHandler extends BaseThingHandler {
     
     private List<ChurchToolsAPI.Booking> cachedBookings = null;
     private long lastApiFetchTime = 0;
+
+    private volatile EventPublisher eventPublisher = null;
+    private volatile ItemChannelLinkRegistry linkRegistry = null;
+
+    public void setEventPublisher(EventPublisher eventPublisher) {
+        this.eventPublisher = eventPublisher;
+    }
+
+    public void setItemChannelLinkRegistry(ItemChannelLinkRegistry linkRegistry) {
+        this.linkRegistry = linkRegistry;
+    }
+
+    private void sendCommandToConfiguredItem(String configKey, String channelId, Command command) {
+        Object itemCfg = getConfig().get(configKey);
+        if (itemCfg != null) {
+            String itemName = itemCfg.toString().trim();
+            if (!itemName.isEmpty()) {
+                ItemChannelLinkRegistry registry = this.linkRegistry;
+                if (registry != null) {
+                    Set<ChannelUID> boundChannels = registry.getBoundChannels(itemName);
+                    if (boundChannels != null) {
+                        ChannelUID thisChannelUID = new ChannelUID(getThing().getUID(), channelId);
+                        if (boundChannels.contains(thisChannelUID)) {
+                            logger.debug("Item {} is already bound to channel {}, skipping direct EventPublisher command.", itemName, channelId);
+                            return;
+                        }
+                    }
+                }
+
+                EventPublisher publisher = this.eventPublisher;
+                if (publisher != null) {
+                    try {
+                        publisher.post(ItemEventFactory.createCommandEvent(itemName, command));
+                        logger.info("Sent direct command {} to configured item {}", command, itemName);
+                    } catch (Exception e) {
+                        logger.warn("Failed to send direct command to item {}: {}", itemName, e.getMessage());
+                    }
+                }
+            }
+        }
+    }
 
     public RoomHeaterHandler(Thing thing) {
         super(thing);
@@ -229,7 +274,7 @@ public class RoomHeaterHandler extends BaseThingHandler {
                                             getConfig().get("resourceId"), currentExpected, newActuatorTemp, overrideHours, manualOverrideUntil);
                                 }
                             } else if (newActuatorTemp <= offTemp) {
-                                if (targetRelayState == OnOffType.ON) {
+                                if (targetRelayState == OnOffType.ON && currentExpected > (offTemp + 0.4)) {
                                     // Turned temperature down during active event heating: manual OFF override
                                     int overrideHours = getIntConfig("externalManualModeDuration", 6);
                                     manualOverrideUntil = ZonedDateTime.now().plusHours(overrideHours);
@@ -527,6 +572,7 @@ public class RoomHeaterHandler extends BaseThingHandler {
             DecimalType command = new DecimalType(newMode);
             updateState(ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE, command);
             getCallback().postCommand(new ChannelUID(getThing().getUID(), ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE), command);
+            sendCommandToConfiguredItem("knxHvacModeItem", ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE, command);
             logger.info("Room Heater HVAC Mode changed to {}", newMode);
         }
     }
@@ -537,6 +583,7 @@ public class RoomHeaterHandler extends BaseThingHandler {
             QuantityType<?> command = new QuantityType<>(newTemp + " °C");
             updateState(ChurchToolsHeatingBindingConstants.CHANNEL_ACTUATOR_TARGET_TEMP, command);
             getCallback().postCommand(new ChannelUID(getThing().getUID(), ChurchToolsHeatingBindingConstants.CHANNEL_ACTUATOR_TARGET_TEMP), command);
+            sendCommandToConfiguredItem("knxTargetTempItem", ChurchToolsHeatingBindingConstants.CHANNEL_ACTUATOR_TARGET_TEMP, new DecimalType(newTemp));
             logger.info("Room Heater Actuator Target Temp changed to {} °C", newTemp);
         }
     }
