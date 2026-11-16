@@ -7,6 +7,7 @@ import static org.mockito.Mockito.*;
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -14,6 +15,8 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.openhab.core.config.core.Configuration;
 import org.openhab.core.events.EventPublisher;
+import org.openhab.core.items.Item;
+import org.openhab.core.items.ItemRegistry;
 import org.openhab.core.items.events.ItemCommandEvent;
 import org.openhab.core.library.types.DateTimeType;
 import org.openhab.core.library.types.DecimalType;
@@ -26,6 +29,7 @@ import org.openhab.core.thing.Thing;
 import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.ThingUID;
 import org.openhab.core.thing.binding.ThingHandlerCallback;
+import org.openhab.core.thing.link.ItemChannelLinkRegistry;
 import org.openhab.core.types.State;
 import org.openhab.core.types.UnDefType;
 
@@ -376,5 +380,47 @@ public class RoomHeaterHandlerTest {
         }
         assertTrue(foundHvacModeCmd, "Direct command to EK-Heizung-Betriebsart was not posted via EventPublisher");
         assertTrue(foundTargetTempCmd, "Direct command to Temperatur EK soll was not posted via EventPublisher");
+    }
+
+    @Test
+    public void testStartupSyncReadsPersistedTargetAndCurrentTemp() throws Exception {
+        EventPublisher eventPublisher = mock(EventPublisher.class);
+        ItemChannelLinkRegistry linkRegistry = mock(ItemChannelLinkRegistry.class);
+        ItemRegistry itemRegistry = mock(ItemRegistry.class);
+
+        handler.setEventPublisher(eventPublisher);
+        handler.setItemChannelLinkRegistry(linkRegistry);
+        handler.setItemRegistry(itemRegistry);
+
+        config.put("knxHvacModeItem", "EK-Heizung-Betriebsart");
+        config.put("knxTargetTempItem", "Temperatur EK soll");
+        config.put("knxCurrentTempItem", "Temperatur EK Ist");
+
+        // Mock persisted targetTemperature item (21.5 °C) linked to CHANNEL_TARGET_TEMPERATURE
+        Item targetTempItem = mock(Item.class);
+        when(targetTempItem.getState()).thenReturn(new DecimalType(21.5));
+        when(linkRegistry.getLinkedItems(eq(new ChannelUID(thingUID, ChurchToolsHeatingBindingConstants.CHANNEL_TARGET_TEMPERATURE))))
+                .thenReturn(Collections.singleton(targetTempItem));
+
+        // Mock persisted currentTemp item (12.8 °C) in ItemRegistry
+        Item currentTempItem = mock(Item.class);
+        when(currentTempItem.getState()).thenReturn(new DecimalType(12.8));
+        when(itemRegistry.getItem("Temperatur EK Ist")).thenReturn(currentTempItem);
+
+        // User clicks Komfort (1) right after openHAB restart WITHOUT having moved the Sollwert Vorlauf slider!
+        when(api.getBookings(eq(5), anyBoolean())).thenReturn(new ArrayList<>());
+        handler.processChannelState(ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE, new DecimalType(1), true);
+
+        // Must send 21.5 °C (from persisted item), NOT the hardcoded 20.0 °C default!
+        ArgumentCaptor<ItemCommandEvent> eventCaptor = ArgumentCaptor.forClass(ItemCommandEvent.class);
+        verify(eventPublisher, atLeastOnce()).post(eventCaptor.capture());
+
+        boolean sent21_5 = false;
+        for (ItemCommandEvent event : eventCaptor.getAllValues()) {
+            if ("Temperatur EK soll".equals(event.getItemName()) && new DecimalType(21.5).equals(event.getItemCommand())) {
+                sent21_5 = true;
+            }
+        }
+        assertTrue(sent21_5, "Binding should have synced 21.5 °C from persisted targetTemperature item instead of sending 20.0 °C");
     }
 }

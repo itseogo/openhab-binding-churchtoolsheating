@@ -10,6 +10,9 @@ import java.util.concurrent.TimeUnit;
 
 import org.openhab.core.config.core.Configuration;
 import org.openhab.core.events.EventPublisher;
+import org.openhab.core.items.Item;
+import org.openhab.core.items.ItemNotFoundException;
+import org.openhab.core.items.ItemRegistry;
 import org.openhab.core.items.events.ItemEventFactory;
 import org.openhab.core.library.types.DateTimeType;
 import org.openhab.core.library.types.DecimalType;
@@ -50,6 +53,7 @@ public class RoomHeaterHandler extends BaseThingHandler {
 
     private volatile EventPublisher eventPublisher = null;
     private volatile ItemChannelLinkRegistry linkRegistry = null;
+    private volatile ItemRegistry itemRegistry = null;
 
     public void setEventPublisher(EventPublisher eventPublisher) {
         this.eventPublisher = eventPublisher;
@@ -57,6 +61,93 @@ public class RoomHeaterHandler extends BaseThingHandler {
 
     public void setItemChannelLinkRegistry(ItemChannelLinkRegistry linkRegistry) {
         this.linkRegistry = linkRegistry;
+    }
+
+    public void setItemRegistry(ItemRegistry itemRegistry) {
+        this.itemRegistry = itemRegistry;
+    }
+
+    private Double parseTemperatureState(State state) {
+        if (state instanceof QuantityType) {
+            return ((QuantityType<?>) state).toBigDecimal().doubleValue();
+        } else if (state instanceof DecimalType) {
+            return ((DecimalType) state).toBigDecimal().doubleValue();
+        } else if (state instanceof StringType) {
+            try {
+                return Double.parseDouble(state.toString().replaceAll("[^0-9.-]", ""));
+            } catch (NumberFormatException e) {}
+        }
+        return null;
+    }
+
+    private State getChannelItemState(String channelId) {
+        ItemChannelLinkRegistry linkReg = this.linkRegistry;
+        if (linkReg != null) {
+            ChannelUID channelUID = new ChannelUID(getThing().getUID(), channelId);
+            Set<Item> items = linkReg.getLinkedItems(channelUID);
+            if (items != null) {
+                for (Item item : items) {
+                    State st = item.getState();
+                    if (st != null && !(st instanceof UnDefType)) {
+                        return st;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    private State getConfiguredItemState(String configKey) {
+        Object cfg = getConfig().get(configKey);
+        if (cfg != null) {
+            String itemName = cfg.toString().trim();
+            if (!itemName.isEmpty()) {
+                ItemRegistry itemReg = this.itemRegistry;
+                if (itemReg != null) {
+                    try {
+                        Item item = itemReg.getItem(itemName);
+                        State st = item.getState();
+                        if (st != null && !(st instanceof UnDefType)) {
+                            return st;
+                        }
+                    } catch (ItemNotFoundException e) {
+                        // ignore
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    private void syncInputParametersFromItems() {
+        // 1. Target Temperature (Sollwert Vorlauf)
+        State targetState = getChannelItemState(ChurchToolsHeatingBindingConstants.CHANNEL_TARGET_TEMPERATURE);
+        Double parsedTarget = parseTemperatureState(targetState);
+        if (parsedTarget != null && parsedTarget > 0) {
+            this.targetTemp = parsedTarget;
+        }
+
+        // 2. Current Temperature (Ist-Temperatur via knxCurrentTempItem or Channel)
+        State currentState = getConfiguredItemState("knxCurrentTempItem");
+        if (currentState == null) {
+            currentState = getChannelItemState(ChurchToolsHeatingBindingConstants.CHANNEL_CURRENT_TEMPERATURE);
+        }
+        Double parsedCurrent = parseTemperatureState(currentState);
+        if (parsedCurrent != null && parsedCurrent > 0) {
+            this.currentTemp = parsedCurrent;
+        }
+
+        // 3. Heating Enabled
+        State enabledState = getChannelItemState(ChurchToolsHeatingBindingConstants.CHANNEL_HEATING_ENABLED);
+        if (enabledState instanceof OnOffType) {
+            this.heatingEnabled = (enabledState == OnOffType.ON);
+        }
+
+        // 4. Summer Mode
+        State summerState = getChannelItemState(ChurchToolsHeatingBindingConstants.CHANNEL_SUMMER_MODE);
+        if (summerState instanceof OnOffType) {
+            this.summerMode = (summerState == OnOffType.ON);
+        }
     }
 
     private void sendCommandToConfiguredItem(String configKey, String channelId, Command command) {
@@ -322,6 +413,7 @@ public class RoomHeaterHandler extends BaseThingHandler {
                                 logger.debug("HVAC Mode 1 matches active event heating phase for resource {}. Skipping manual override.", getConfig().get("resourceId"));
                             } else {
                                 if (newMode.intValue() == 1 || newMode.intValue() == 2) {
+                                    syncInputParametersFromItems();
                                     if (targetRelayState == OnOffType.ON) {
                                         // Resuming scheduled event heating: clear manual OFF override
                                         manualOverrideUntil = null;
@@ -379,6 +471,8 @@ public class RoomHeaterHandler extends BaseThingHandler {
             if (getBridge().getHandler() == null) {
                 return;
             }
+
+            syncInputParametersFromItems();
 
             ChurchToolsBridgeHandler bridgeHandler = (ChurchToolsBridgeHandler) getBridge().getHandler();
             ChurchToolsAPI api = bridgeHandler.getApi();

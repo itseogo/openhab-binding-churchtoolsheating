@@ -9,6 +9,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.openhab.core.events.Event;
 import org.openhab.core.events.EventPublisher;
 import org.openhab.core.events.EventSubscriber;
+import org.openhab.core.items.ItemRegistry;
 import org.openhab.core.items.events.ItemStateChangedEvent;
 import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.ChannelUID;
@@ -35,6 +36,7 @@ public class ChurchToolsHandlerFactory extends BaseThingHandlerFactory implement
 
     private volatile ItemChannelLinkRegistry linkRegistry;
     private volatile EventPublisher eventPublisher;
+    private volatile ItemRegistry itemRegistry;
 
     @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC)
     public void setItemChannelLinkRegistry(ItemChannelLinkRegistry linkRegistry) {
@@ -70,6 +72,23 @@ public class ChurchToolsHandlerFactory extends BaseThingHandlerFactory implement
         }
     }
 
+    @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC)
+    public void setItemRegistry(ItemRegistry itemRegistry) {
+        this.itemRegistry = itemRegistry;
+        for (RoomHeaterHandler handler : activeHandlers.values()) {
+            handler.setItemRegistry(itemRegistry);
+        }
+    }
+
+    public void unsetItemRegistry(ItemRegistry itemRegistry) {
+        if (this.itemRegistry == itemRegistry) {
+            this.itemRegistry = null;
+            for (RoomHeaterHandler handler : activeHandlers.values()) {
+                handler.setItemRegistry(null);
+            }
+        }
+    }
+
     @Override
     public boolean supportsThingType(ThingTypeUID thingTypeUID) {
         return ChurchToolsHeatingBindingConstants.THING_TYPE_API.equals(thingTypeUID)
@@ -86,6 +105,7 @@ public class ChurchToolsHandlerFactory extends BaseThingHandlerFactory implement
             RoomHeaterHandler handler = new RoomHeaterHandler(thing);
             handler.setItemChannelLinkRegistry(this.linkRegistry);
             handler.setEventPublisher(this.eventPublisher);
+            handler.setItemRegistry(this.itemRegistry);
             activeHandlers.put(thing.getUID(), handler);
             return handler;
         }

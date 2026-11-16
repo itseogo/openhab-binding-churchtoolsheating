@@ -192,8 +192,9 @@ Number:Temperature Raum_Saal_currentTemperature "Ist-Temperatur [%.1f °C]" {
   1. `EventPublisher` wird per OSGi Declarative Services in `ChurchToolsHandlerFactory` injiziert und an die `RoomHeaterHandler` übergeben.
   2. In `updateHvacMode` und `updateActuatorTargetTemp` prüft das Binding nun, ob `knxHvacModeItem` bzw. `knxTargetTempItem` konfiguriert sind. Falls das Item nicht bereits mit dem entsprechenden Channel verknüpft ist, sendet das Binding den Schaltbefehl (`Komfort = 1` / `Nacht = 3`) und die Solltemperatur (`21,5 °C` / `12,0 °C`) per `EventPublisher.post(ItemEventFactory.createCommandEvent(...))` **direkt an das KNX-Item**!
   3. Zusätzliche Absicherung: Bei `newActuatorTemp <= offTemp` wird nur dann ein manueller AUS-Handbetrieb ausgelöst, wenn die Solltemperatur zuvor tatsächlich im Heizbetrieb war (`currentExpected > offTemp + 0.4`).
-  4. Alle 15 Unit-Tests (inklusive Direct-KNX-Item-Befehlstest) erfolgreich.
+  4. Alle 16 Unit-Tests (inklusive Direct-KNX-Item-Befehlstest und Startup-Sync-Test) erfolgreich.
   5. **Fix gegen sofortiges Rücksetzen des Nacht-Handbetriebs:** Beim Umschalten auf Nacht während eines Termins bestätigte der KNX-Aktor seine Absenktemperatur (12 °C). Die Abfrage in `CHANNEL_ACTUATOR_TARGET_TEMP` hatte den gerade aktivierten 4h/6h-Handbetrieb 18 ms später fälschlich als "Temperaturabsenkung beendet Handbetrieb" interpretiert und gelöscht. Dies ist nun strikt auf `targetRelayState == OFF && currentExpected > (offTemp + 0.4)` begrenzt – der Nacht-Handbetrieb während Terminen bleibt damit felsenfest aktiv!
+  6. **Automatisches Einlesen persistierter Item-Werte nach openHAB-Neustart (`syncInputParametersFromItems`):** Über `ItemChannelLinkRegistry` und `ItemRegistry` liest das Binding die aktuellen/persistierten Werte für `targetTemperature` (`Sollwert Vorlauf`, z. B. 21,5 °C), `currentTemperature` (`Ist-Temperatur`, z. B. 12,8 °C), `heatingEnabled` und `summerMode` direkt aus den openHAB-Items aus, ohne darauf warten zu müssen, dass ein Slider oder Sensor nach dem Neustart manuell bewegt wird.
 
 ---
 
