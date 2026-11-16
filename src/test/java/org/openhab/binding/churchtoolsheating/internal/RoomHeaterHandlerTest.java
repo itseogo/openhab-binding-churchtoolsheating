@@ -168,6 +168,15 @@ public class RoomHeaterHandlerTest {
             eq(new ChannelUID(thingUID, ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE)),
             eq(new DecimalType(1))
         );
+
+        // 4. Actuator reports back the lower off-temperature (12 °C / 17 °C) from KNX bus:
+        // Must NOT clear manual override!
+        reset(callback);
+        handler.processChannelState(ChurchToolsHeatingBindingConstants.CHANNEL_ACTUATOR_TARGET_TEMP, new DecimalType(17.0), false);
+        verify(callback, never()).stateUpdated(
+            eq(new ChannelUID(thingUID, ChurchToolsHeatingBindingConstants.CHANNEL_MANUAL_OVERRIDE_UNTIL)),
+            eq(UnDefType.UNDEF)
+        );
     }
 
     @Test

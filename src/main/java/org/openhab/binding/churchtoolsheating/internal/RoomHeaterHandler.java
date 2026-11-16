@@ -283,7 +283,7 @@ public class RoomHeaterHandler extends BaseThingHandler {
                                     updateHvacMode(java.math.BigDecimal.valueOf(getIntConfig("offHvacMode", 3)));
                                     logger.info("External Setpoint turned down during active heating for resource {} ({} °C <= offTemp {} °C). Suspending heating for {} hours until {}",
                                             getConfig().get("resourceId"), newActuatorTemp, offTemp, overrideHours, manualOverrideUntil);
-                                } else if (manualOverrideUntil != null) {
+                                } else if (targetRelayState == OnOffType.OFF && manualOverrideUntil != null && currentExpected > (offTemp + 0.4)) {
                                     // Temperature turned back down to or below offTemp during manual override outside event: clear manual override
                                     manualOverrideUntil = null;
                                     updateState(ChurchToolsHeatingBindingConstants.CHANNEL_MANUAL_OVERRIDE_UNTIL, UnDefType.UNDEF);
