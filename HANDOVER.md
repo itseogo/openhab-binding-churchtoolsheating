@@ -192,9 +192,10 @@ Number:Temperature Raum_Saal_currentTemperature "Ist-Temperatur [%.1f °C]" {
   1. `EventPublisher` wird per OSGi Declarative Services in `ChurchToolsHandlerFactory` injiziert und an die `RoomHeaterHandler` übergeben.
   2. In `updateHvacMode` und `updateActuatorTargetTemp` prüft das Binding nun, ob `knxHvacModeItem` bzw. `knxTargetTempItem` konfiguriert sind. Falls das Item nicht bereits mit dem entsprechenden Channel verknüpft ist, sendet das Binding den Schaltbefehl (`Komfort = 1` / `Nacht = 3`) und die Solltemperatur (`21,5 °C` / `12,0 °C`) per `EventPublisher.post(ItemEventFactory.createCommandEvent(...))` **direkt an das KNX-Item**!
   3. Zusätzliche Absicherung: Bei `newActuatorTemp <= offTemp` wird nur dann ein manueller AUS-Handbetrieb ausgelöst, wenn die Solltemperatur zuvor tatsächlich im Heizbetrieb war (`currentExpected > offTemp + 0.4`).
-  4. Alle 16 Unit-Tests (inklusive Direct-KNX-Item-Befehlstest und Startup-Sync-Test) erfolgreich.
+  4. Alle 17 Unit-Tests (inklusive Direct-KNX-Item-Befehlstest, Startup-Sync-Test und Frost/Nacht-FlipFlop-Test) erfolgreich.
   5. **Fix gegen sofortiges Rücksetzen des Nacht-Handbetriebs:** Beim Umschalten auf Nacht während eines Termins bestätigte der KNX-Aktor seine Absenktemperatur (12 °C). Die Abfrage in `CHANNEL_ACTUATOR_TARGET_TEMP` hatte den gerade aktivierten 4h/6h-Handbetrieb 18 ms später fälschlich als "Temperaturabsenkung beendet Handbetrieb" interpretiert und gelöscht. Dies ist nun strikt auf `targetRelayState == OFF && currentExpected > (offTemp + 0.4)` begrenzt – der Nacht-Handbetrieb während Terminen bleibt damit felsenfest aktiv!
   6. **Automatisches Einlesen persistierter Item-Werte nach openHAB-Neustart (`syncInputParametersFromItems`):** Über `ItemChannelLinkRegistry` und `ItemRegistry` liest das Binding die aktuellen/persistierten Werte für `targetTemperature` (`Sollwert Vorlauf`, z. B. 21,5 °C), `currentTemperature` (`Ist-Temperatur`, z. B. 12,8 °C), `heatingEnabled` und `summerMode` direkt aus den openHAB-Items aus, ohne darauf warten zu müssen, dass ein Slider oder Sensor nach dem Neustart manuell bewegt wird.
+  7. **Fix gegen Nacht (3) / Frost (4) Flip-Flop (17.11.2026):** Wenn ein Raum im Ruhebetrieb (`targetRelayState == OFF`) manuell auf **Frost (4)** geschaltet wurde, während `offHvacMode = 3` (Nacht) konfiguriert war, löschte das Binding `manualOverrideUntil` und versuchte in derselben Millisekunde über `evaluateHeatingLogic()` wieder `3` (Nacht) zu erzwingen, was auf dem KNX-Bus zu einem Endlos-Ping-Pong zwischen `3` und `4` führte. Nun akzeptiert `evaluateHeatingLogic()` im Ruhebetrieb sowohl `3` (Nacht) als auch `4` (Frost) als gültigen Aus-Zustand (`expectedHvacMode == 3 || expectedHvacMode == 4`), ohne dagegenzusteuern.
 
 ---
 
@@ -204,7 +205,8 @@ Falls in künftigen Chat-Verläufen ein bestimmter Stand wiederhergestellt werde
 
 | Commit | Beschreibung | Zustand |
 |---|---|---|
-| **`c6aebb5` (Aktuell / HEAD)** | **Komplett-Stand (16.11.2026):** Bidirektionale Steuerung direkter KNX-Items (`EventPublisher`), Schutz des Nacht-Handbetriebs gegen 12 °C-Aktor-Echo, Startup-Sync persistierter Item-Werte (`ItemRegistry` / `ItemChannelLinkRegistry`), Command-Storm-Fix, 16 Unit-Tests. | **Empfohlen / Produktiv** |
+| **Aktuell (HEAD)** | **Komplett-Stand (17.11.2026):** Schutz gegen Nacht/Frost-Flip-Flop, bidirektionale Steuerung direkter KNX-Items (`EventPublisher`), Schutz des Nacht-Handbetriebs gegen 12 °C-Aktor-Echo, Startup-Sync persistierter Item-Werte (`ItemRegistry` / `ItemChannelLinkRegistry`), Command-Storm-Fix, 17 Unit-Tests. | **Empfohlen / Produktiv** |
+| `c6aebb5` | Stand vom 16.11.2026 mit Startup-Sync und Direct-KNX-Item-Support. | Stabil, vor Frost/Nacht-Flip-Flop-Fix. |
 | `a22c4c3` | Fix gegen sofortiges Löschen des Nacht-Handbetriebs durch 12 °C-Sollwert-Rückmeldung während aktivem Termin. | Stabil, ohne Startup-Item-Sync. |
 | `27353ed` | Bidirektionale Steuerung für `knxHvacModeItem` und `knxTargetTempItem` via `EventPublisher`. | Stabil, aber 12 °C-Echo löschte Nacht-Override. |
 | `27a4357` | Command-Storm-Loop behoben (`postCommand`-Echo entfernt, bedarfsgesteuerte Neuberechnung, Factory-Deduplizierung). | Stabil, vor direkter KNX-Item-Sendung. |

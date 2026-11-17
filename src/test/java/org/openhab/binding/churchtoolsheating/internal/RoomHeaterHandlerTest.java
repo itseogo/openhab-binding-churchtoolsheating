@@ -423,4 +423,26 @@ public class RoomHeaterHandlerTest {
         }
         assertTrue(sent21_5, "Binding should have synced 21.5 °C from persisted targetTemperature item instead of sending 20.0 °C");
     }
+
+    @Test
+    public void testFrostModeInIdleRoom_DoesNotFlipFlopBackToNacht() throws Exception {
+        when(api.getBookings(eq(5), anyBoolean())).thenReturn(new ArrayList<>());
+        handler.processChannelState(ChurchToolsHeatingBindingConstants.CHANNEL_TARGET_TEMPERATURE, new DecimalType(21.0));
+
+        // Room is now in idle state (offHvacMode = 3 Nacht)
+        reset(callback);
+
+        // User clicks Frost (4) on widget (or KNX wall switch reports Frost 4)
+        handler.processChannelState(ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE, new DecimalType(4), true);
+
+        // Binding must update channel state to 4 (Frost) and MUST NEVER send postCommand(3) back!
+        verify(callback, never()).postCommand(
+            eq(new ChannelUID(thingUID, ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE)),
+            eq(new DecimalType(3))
+        );
+        verify(callback, never()).stateUpdated(
+            eq(new ChannelUID(thingUID, ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE)),
+            eq(new DecimalType(3))
+        );
+    }
 }

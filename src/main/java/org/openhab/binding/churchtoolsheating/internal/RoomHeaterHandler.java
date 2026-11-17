@@ -620,7 +620,12 @@ public class RoomHeaterHandler extends BaseThingHandler {
 
             if (targetRelayState == OnOffType.OFF) {
                 actuatorTargetTempVal = getDoubleConfig("offTemperature", 17.0);
-                targetHvacMode = java.math.BigDecimal.valueOf(getIntConfig("offHvacMode", 3));
+                int configuredOffMode = getIntConfig("offHvacMode", 3);
+                if (expectedHvacMode != null && (expectedHvacMode.intValue() == 3 || expectedHvacMode.intValue() == 4)) {
+                    targetHvacMode = expectedHvacMode;
+                } else {
+                    targetHvacMode = java.math.BigDecimal.valueOf(configuredOffMode);
+                }
             }
 
             if (!heatingEnabled || summerMode) {
