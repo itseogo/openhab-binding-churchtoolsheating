@@ -15,7 +15,7 @@
 
     <groupId>org.openhab.addons.bundles</groupId>
     <artifactId>org.openhab.binding.churchtoolsheating</artifactId>
-    <version>5.2.1-SNAPSHOT</version>
+    <version>5.2.3-SNAPSHOT</version>
 
     <name>openHAB Add-ons :: Bundles :: ChurchTools Heating Binding</name>
     <packaging>jar</packaging>
@@ -60,19 +60,19 @@
         <dependency>
             <groupId>org.openhab.core.bundles</groupId>
             <artifactId>org.openhab.core</artifactId>
-            <version>5.2.1</version>
+            <version>5.2.3</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.openhab.core.bundles</groupId>
             <artifactId>org.openhab.core.thing</artifactId>
-            <version>5.2.1</version>
+            <version>5.2.3</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.openhab.core.bundles</groupId>
             <artifactId>org.openhab.core.config.discovery</artifactId>
-            <version>5.2.1</version>
+            <version>5.2.3</version>
             <scope>provided</scope>
         </dependency>
         <dependency>

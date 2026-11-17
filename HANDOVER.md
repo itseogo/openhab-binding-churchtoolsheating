@@ -1,8 +1,8 @@
 # Handover & Debugging-Dokumentation: ChurchTools Heating Binding
 
-**Datum:** 01. November 2026  
+**Datum:** 17. November 2026  
 **Projekt:** openHAB Binding `churchtoolsheating` (`org.openhab.binding.churchtoolsheating`)  
-**Status:** Fehler behoben & neu kompiliert (`5.2.1-SNAPSHOT`)
+**Status:** Fehler behoben & neu kompiliert (`5.2.3-SNAPSHOT`)
 
 ---
 
@@ -205,7 +205,8 @@ Falls in künftigen Chat-Verläufen ein bestimmter Stand wiederhergestellt werde
 
 | Commit | Beschreibung | Zustand |
 |---|---|---|
-| **Aktuell (HEAD)** | **Komplett-Stand (17.11.2026):** Schutz gegen Nacht/Frost-Flip-Flop, bidirektionale Steuerung direkter KNX-Items (`EventPublisher`), Schutz des Nacht-Handbetriebs gegen 12 °C-Aktor-Echo, Startup-Sync persistierter Item-Werte (`ItemRegistry` / `ItemChannelLinkRegistry`), Command-Storm-Fix, 17 Unit-Tests. | **Empfohlen / Produktiv** |
+| **Aktuell (HEAD)** | **openHAB 5.2.3-SNAPSHOT (17.11.2026):** Schutz gegen Nacht/Frost-Flip-Flop, bidirektionale Steuerung direkter KNX-Items (`EventPublisher`), Schutz des Nacht-Handbetriebs gegen 12 °C-Aktor-Echo, Startup-Sync persistierter Item-Werte (`ItemRegistry` / `ItemChannelLinkRegistry`), Command-Storm-Fix, 17 Unit-Tests. | **Empfohlen / Produktiv** |
+| `a02ad3c` | Stand 5.2.1-SNAPSHOT mit Nacht/Frost-Flip-Flop-Fix (17.11.2026). | Stabil. |
 | `c6aebb5` | Stand vom 16.11.2026 mit Startup-Sync und Direct-KNX-Item-Support. | Stabil, vor Frost/Nacht-Flip-Flop-Fix. |
 | `a22c4c3` | Fix gegen sofortiges Löschen des Nacht-Handbetriebs durch 12 °C-Sollwert-Rückmeldung während aktivem Termin. | Stabil, ohne Startup-Item-Sync. |
 | `27353ed` | Bidirektionale Steuerung für `knxHvacModeItem` und `knxTargetTempItem` via `EventPublisher`. | Stabil, aber 12 °C-Echo löschte Nacht-Override. |
@@ -218,6 +219,6 @@ Falls in künftigen Chat-Verläufen ein bestimmter Stand wiederhergestellt werde
 ```powershell
 & "C:\Users\jkid\.m2\wrapper\dists\apache-maven-3.9.16\0daed3be3ebd1c706f0e69e8b07c6b73f5cc4ea3dfce72a8d0ec2e849ca2ddb0\bin\mvn.cmd" clean package -DskipTests
 ```
-Artefakt: `target/org.openhab.binding.churchtoolsheating-5.2.1-SNAPSHOT.jar`
+Artefakt: `target/org.openhab.binding.churchtoolsheating-5.2.3-SNAPSHOT.jar`
 
 
