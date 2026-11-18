@@ -445,4 +445,65 @@ public class RoomHeaterHandlerTest {
             eq(new DecimalType(3))
         );
     }
+
+    @Test
+    public void testStartupIdleClearsStuckRelayAndActualHeatingStart() throws Exception {
+        when(api.getBookings(eq(5), anyBoolean())).thenReturn(new ArrayList<>());
+
+        // On first evaluation after startup/JAR update when idle (no active event):
+        handler.processChannelState(ChurchToolsHeatingBindingConstants.CHANNEL_TARGET_TEMPERATURE, new DecimalType(21.0));
+
+        // Because relayState starts as null, it MUST explicitly set heatingRelay = OFF and actualHeatingStart = UNDEF
+        verify(callback, atLeastOnce()).stateUpdated(
+            eq(new ChannelUID(thingUID, ChurchToolsHeatingBindingConstants.CHANNEL_HEATING_RELAY)),
+            eq(OnOffType.OFF)
+        );
+        verify(callback, atLeastOnce()).stateUpdated(
+            eq(new ChannelUID(thingUID, ChurchToolsHeatingBindingConstants.CHANNEL_ACTUAL_HEATING_START)),
+            eq(UnDefType.UNDEF)
+        );
+    }
+
+    @Test
+    public void testManualOverrideUntil_IgnoresSelfStateChangeEcho_AcceptsExplicitReset() throws Exception {
+        List<ChurchToolsAPI.Booking> bookings = new ArrayList<>();
+        ChurchToolsAPI.Booking activeBooking = new ChurchToolsAPI.Booking();
+        activeBooking.id = 777;
+        activeBooking.caption = "Jugendkreis";
+        activeBooking.startDate = ZonedDateTime.now().minusMinutes(30);
+        activeBooking.endDate = ZonedDateTime.now().plusHours(2);
+        bookings.add(activeBooking);
+        when(api.getBookings(eq(5), anyBoolean())).thenReturn(bookings);
+
+        handler.processChannelState(ChurchToolsHeatingBindingConstants.CHANNEL_TARGET_TEMPERATURE, new DecimalType(21.0));
+
+        // User activates manual OFF override (Nacht = 3) during active event
+        handler.processChannelState(ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE, new DecimalType(3), false);
+        reset(callback);
+
+        // 1. An in-flight ItemStateChangedEvent (isExplicitCommand = false) with UNDEF on CHANNEL_MANUAL_OVERRIDE_UNTIL
+        // MUST BE IGNORED and must NOT reset the active manual override or turn heating back on!
+        handler.processChannelState(ChurchToolsHeatingBindingConstants.CHANNEL_MANUAL_OVERRIDE_UNTIL, UnDefType.UNDEF, false);
+
+        verify(callback, never()).postCommand(
+            eq(new ChannelUID(thingUID, ChurchToolsHeatingBindingConstants.CHANNEL_HEATING_RELAY)),
+            eq(OnOffType.ON)
+        );
+        verify(callback, never()).stateUpdated(
+            eq(new ChannelUID(thingUID, ChurchToolsHeatingBindingConstants.CHANNEL_MANUAL_OVERRIDE_UNTIL)),
+            eq(UnDefType.UNDEF)
+        );
+
+        // 2. An explicit command (isExplicitCommand = true) from user clicking Reset MUST reset manual override and resume heating!
+        handler.processChannelState(ChurchToolsHeatingBindingConstants.CHANNEL_MANUAL_OVERRIDE_UNTIL, UnDefType.UNDEF, true);
+
+        verify(callback, atLeastOnce()).stateUpdated(
+            eq(new ChannelUID(thingUID, ChurchToolsHeatingBindingConstants.CHANNEL_MANUAL_OVERRIDE_UNTIL)),
+            eq(UnDefType.UNDEF)
+        );
+        verify(callback, atLeastOnce()).postCommand(
+            eq(new ChannelUID(thingUID, ChurchToolsHeatingBindingConstants.CHANNEL_HEATING_RELAY)),
+            eq(OnOffType.ON)
+        );
+    }
 }

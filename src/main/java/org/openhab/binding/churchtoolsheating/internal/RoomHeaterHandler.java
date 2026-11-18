@@ -40,7 +40,7 @@ public class RoomHeaterHandler extends BaseThingHandler {
     private double targetTemp = 20.0;
     private boolean summerMode = false;
     private boolean heatingEnabled = true;
-    private OnOffType relayState = OnOffType.OFF;
+    private OnOffType relayState = null;
     private OnOffType targetRelayState = OnOffType.OFF;
 
     private ZonedDateTime manualOverrideUntil = null;
@@ -170,7 +170,7 @@ public class RoomHeaterHandler extends BaseThingHandler {
                 EventPublisher publisher = this.eventPublisher;
                 if (publisher != null) {
                     try {
-                        publisher.post(ItemEventFactory.createCommandEvent(itemName, command));
+                        publisher.post(ItemEventFactory.createCommandEvent(itemName, command, "org.openhab.binding.churchtoolsheating"));
                         logger.info("Sent direct command {} to configured item {}", command, itemName);
                     } catch (Exception e) {
                         logger.warn("Failed to send direct command to item {}: {}", itemName, e.getMessage());
@@ -326,7 +326,7 @@ public class RoomHeaterHandler extends BaseThingHandler {
                     }
                     break;
                 case ChurchToolsHeatingBindingConstants.CHANNEL_MANUAL_OVERRIDE_UNTIL:
-                    if (state instanceof UnDefType || (state instanceof StringType && state.toString().equals("UNDEF"))) {
+                    if (isExplicitCommand && (state instanceof UnDefType || (state instanceof StringType && state.toString().equals("UNDEF")))) {
                         if (manualOverrideUntil != null) {
                             manualOverrideUntil = null;
                             updateState(ChurchToolsHeatingBindingConstants.CHANNEL_MANUAL_OVERRIDE_UNTIL, UnDefType.UNDEF);
@@ -351,6 +351,7 @@ public class RoomHeaterHandler extends BaseThingHandler {
                         double offTemp = getDoubleConfig("offTemperature", 17.0);
                         double currentExpected = expectedActuatorTargetTemp != null ? expectedActuatorTargetTemp : offTemp;
                         boolean tempChanged = (expectedActuatorTargetTemp == null || Math.abs(expectedActuatorTargetTemp - newActuatorTemp) >= 0.1);
+                        expectedActuatorTargetTemp = newActuatorTemp;
                         
                         if (enableExternalManualMode) {
                             // If automation is currently idle (no scheduled event heating) and someone turns temperature UP above offTemp:
@@ -385,7 +386,6 @@ public class RoomHeaterHandler extends BaseThingHandler {
                                 }
                             }
                         }
-                        expectedActuatorTargetTemp = newActuatorTemp;
                         if (tempChanged) {
                             evaluateHeatingLogic();
                         }
@@ -405,6 +405,7 @@ public class RoomHeaterHandler extends BaseThingHandler {
                         boolean enableExternalManualMode = getBooleanConfig("enableExternalManualMode", true);
                         java.math.BigDecimal currentExpectedMode = expectedHvacMode != null ? expectedHvacMode : java.math.BigDecimal.valueOf(getIntConfig("offHvacMode", 3));
                         boolean modeChanged = (expectedHvacMode == null || newMode.compareTo(expectedHvacMode) != 0);
+                        expectedHvacMode = newMode;
 
                         if ((isExplicitCommand || enableExternalManualMode) && newMode.compareTo(currentExpectedMode) != 0) {
                             // If the automation is currently in a scheduled heating phase (targetRelayState == ON) and mode is 1 (Komfort),
@@ -453,7 +454,6 @@ public class RoomHeaterHandler extends BaseThingHandler {
                                 }
                             }
                         }
-                        expectedHvacMode = newMode;
                         if (modeChanged) {
                             updateState(ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE, new DecimalType(newMode));
                             evaluateHeatingLogic();

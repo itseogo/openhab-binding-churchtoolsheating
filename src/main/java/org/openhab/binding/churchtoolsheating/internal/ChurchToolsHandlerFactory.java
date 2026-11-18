@@ -129,6 +129,11 @@ public class ChurchToolsHandlerFactory extends BaseThingHandlerFactory implement
     @Override
     public void receive(Event event) {
         if (event instanceof ItemStateChangedEvent) {
+            String source = event.getSource();
+            if (source != null && source.contains("churchtoolsheating")) {
+                // Ignore state changes emitted directly by our own binding channels
+                return;
+            }
             ItemStateChangedEvent stateChangedEvent = (ItemStateChangedEvent) event;
             String itemName = stateChangedEvent.getItemName();
             State newState = stateChangedEvent.getItemState();
