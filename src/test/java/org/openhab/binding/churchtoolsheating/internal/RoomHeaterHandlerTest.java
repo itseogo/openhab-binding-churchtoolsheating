@@ -506,4 +506,37 @@ public class RoomHeaterHandlerTest {
             eq(OnOffType.ON)
         );
     }
+
+    @Test
+    public void testEarlyStopMinutesTurnsHeatingOffBeforeEventEnd() throws Exception {
+        config.put("earlyStopMinutes", 30);
+
+        List<ChurchToolsAPI.Booking> bookings = new ArrayList<>();
+        ChurchToolsAPI.Booking endingSoonBooking = new ChurchToolsAPI.Booking();
+        endingSoonBooking.id = 888;
+        endingSoonBooking.caption = "Gottesdienst";
+        endingSoonBooking.startDate = ZonedDateTime.now().minusMinutes(90);
+        // Event ends in 20 minutes (so with earlyStopMinutes = 30, heating end was 10 minutes ago!)
+        endingSoonBooking.endDate = ZonedDateTime.now().plusMinutes(20);
+        bookings.add(endingSoonBooking);
+        when(api.getBookings(eq(5), anyBoolean())).thenReturn(bookings);
+
+        handler.processChannelState(ChurchToolsHeatingBindingConstants.CHANNEL_TARGET_TEMPERATURE, new DecimalType(21.0));
+
+        // 1. Event is still shown in upcomingEvent1 display channel until actual endDate
+        verify(callback, atLeastOnce()).stateUpdated(
+            eq(new ChannelUID(thingUID, ChurchToolsHeatingBindingConstants.CHANNEL_UPCOMING_EVENT_1)),
+            eq(new StringType("Gottesdienst"))
+        );
+
+        // 2. Because we are within the last 30 minutes before endDate, heating relay MUST be OFF and HVAC mode MUST be 3 (Nacht)!
+        verify(callback, atLeastOnce()).postCommand(
+            eq(new ChannelUID(thingUID, ChurchToolsHeatingBindingConstants.CHANNEL_HEATING_RELAY)),
+            eq(OnOffType.OFF)
+        );
+        verify(callback, atLeastOnce()).postCommand(
+            eq(new ChannelUID(thingUID, ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE)),
+            eq(new DecimalType(3))
+        );
+    }
 }

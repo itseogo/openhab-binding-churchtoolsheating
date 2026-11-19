@@ -537,24 +537,36 @@ public class RoomHeaterHandler extends BaseThingHandler {
                 updateState(ChurchToolsHeatingBindingConstants.CHANNEL_NEXT_EVENT_3_END, UnDefType.UNDEF);
             }
 
-            // 1. Find valid event for heating
-            ZonedDateTime eventStart = null;
-            ZonedDateTime eventEnd = null;
-
+            // 1. Update display channels for primary upcoming event
             if (upcoming.size() > 0) {
-                eventStart = upcoming.get(0).startDate;
-                eventEnd = upcoming.get(0).endDate;
+                updateState(ChurchToolsHeatingBindingConstants.CHANNEL_NEXT_EVENT_START, new DateTimeType(upcoming.get(0).startDate));
+                updateState(ChurchToolsHeatingBindingConstants.CHANNEL_NEXT_EVENT_END, new DateTimeType(upcoming.get(0).endDate));
+            } else {
+                updateState(ChurchToolsHeatingBindingConstants.CHANNEL_NEXT_EVENT_START, UnDefType.UNDEF);
+                updateState(ChurchToolsHeatingBindingConstants.CHANNEL_NEXT_EVENT_END, UnDefType.UNDEF);
+            }
+
+            // Find valid event for heating (taking earlyStopMinutes into account)
+            int earlyStopMinutes = getIntConfig("earlyStopMinutes", 0);
+            if (earlyStopMinutes < 0) {
+                earlyStopMinutes = 0;
+            }
+
+            ZonedDateTime eventStart = null;
+            ZonedDateTime heatingEnd = null;
+            for (ChurchToolsAPI.Booking b : upcoming) {
+                ZonedDateTime effectiveEnd = b.endDate.minusMinutes(earlyStopMinutes);
+                if (effectiveEnd.isAfter(now)) {
+                    eventStart = b.startDate;
+                    heatingEnd = effectiveEnd;
+                    break;
+                }
             }
 
             if (eventStart == null) {
-                updateState(ChurchToolsHeatingBindingConstants.CHANNEL_NEXT_EVENT_START, UnDefType.UNDEF);
-                updateState(ChurchToolsHeatingBindingConstants.CHANNEL_NEXT_EVENT_END, UnDefType.UNDEF);
                 updateState(ChurchToolsHeatingBindingConstants.CHANNEL_HEATING_START, UnDefType.UNDEF);
                 targetRelayState = OnOffType.OFF;
             } else {
-                updateState(ChurchToolsHeatingBindingConstants.CHANNEL_NEXT_EVENT_START, new DateTimeType(eventStart));
-                updateState(ChurchToolsHeatingBindingConstants.CHANNEL_NEXT_EVENT_END, new DateTimeType(eventEnd));
-
                 // 2. Calculate Pre-heat time (4-point curve)
                 boolean enablePreheating = getBooleanConfig("enablePreheating", true);
 
@@ -591,13 +603,13 @@ public class RoomHeaterHandler extends BaseThingHandler {
                 ZonedDateTime vorlaufZeit = eventStart.minusMinutes(vorlaufInMinuten);
                 updateState(ChurchToolsHeatingBindingConstants.CHANNEL_HEATING_START, new DateTimeType(vorlaufZeit));
 
-                logger.debug("Heating evaluation: targetTemp={}, currentTemp={}, deltaT={}, vorlaufH={}h ({} min), eventStart={}, vorlaufZeit={}",
-                        targetTemp, currentTemp, (targetTemp - currentTemp), vorlaufH, vorlaufInMinuten, eventStart, vorlaufZeit);
+                logger.debug("Heating evaluation: targetTemp={}, currentTemp={}, deltaT={}, vorlaufH={}h ({} min), eventStart={}, heatingEnd={} (earlyStop={} min), vorlaufZeit={}",
+                        targetTemp, currentTemp, (targetTemp - currentTemp), vorlaufH, vorlaufInMinuten, eventStart, heatingEnd, earlyStopMinutes, vorlaufZeit);
 
                 // 3. Control logic
                 if (summerMode || !heatingEnabled) {
                     targetRelayState = OnOffType.OFF;
-                } else if (now.isAfter(vorlaufZeit) && now.isBefore(eventEnd)) {
+                } else if (now.isAfter(vorlaufZeit) && now.isBefore(heatingEnd)) {
                     targetRelayState = OnOffType.ON;
                 } else {
                     targetRelayState = OnOffType.OFF;

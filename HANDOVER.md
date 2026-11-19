@@ -192,7 +192,7 @@ Number:Temperature Raum_Saal_currentTemperature "Ist-Temperatur [%.1f °C]" {
   1. `EventPublisher` wird per OSGi Declarative Services in `ChurchToolsHandlerFactory` injiziert und an die `RoomHeaterHandler` übergeben.
   2. In `updateHvacMode` und `updateActuatorTargetTemp` prüft das Binding nun, ob `knxHvacModeItem` bzw. `knxTargetTempItem` konfiguriert sind. Falls das Item nicht bereits mit dem entsprechenden Channel verknüpft ist, sendet das Binding den Schaltbefehl (`Komfort = 1` / `Nacht = 3`) und die Solltemperatur (`21,5 °C` / `12,0 °C`) per `EventPublisher.post(ItemEventFactory.createCommandEvent(...))` **direkt an das KNX-Item**!
   3. Zusätzliche Absicherung: Bei `newActuatorTemp <= offTemp` wird nur dann ein manueller AUS-Handbetrieb ausgelöst, wenn die Solltemperatur zuvor tatsächlich im Heizbetrieb war (`currentExpected > offTemp + 0.4`).
-  4. Alle 19 Unit-Tests (inklusive Direct-KNX-Item-Befehlstest, Startup-Sync-Test, Frost/Nacht-FlipFlop-Test und Self-Echo-Filter-Test) erfolgreich.
+  4. Alle 20 Unit-Tests (inklusive Direct-KNX-Item-Befehlstest, Startup-Sync-Test, Frost/Nacht-FlipFlop-Test, Self-Echo-Filter-Test und EarlyStop-Test) erfolgreich.
   5. **Fix gegen sofortiges Rücksetzen des Nacht-Handbetriebs:** Beim Umschalten auf Nacht während eines Termins bestätigte der KNX-Aktor seine Absenktemperatur (12 °C). Die Abfrage in `CHANNEL_ACTUATOR_TARGET_TEMP` hatte den gerade aktivierten 4h/6h-Handbetrieb 18 ms später fälschlich als "Temperaturabsenkung beendet Handbetrieb" interpretiert und gelöscht. Dies ist nun strikt auf `targetRelayState == OFF && currentExpected > (offTemp + 0.4)` begrenzt – der Nacht-Handbetrieb während Terminen bleibt damit felsenfest aktiv!
   6. **Automatisches Einlesen persistierter Item-Werte nach openHAB-Neustart (`syncInputParametersFromItems`):** Über `ItemChannelLinkRegistry` und `ItemRegistry` liest das Binding die aktuellen/persistierten Werte für `targetTemperature` (`Sollwert Vorlauf`, z. B. 21,5 °C), `currentTemperature` (`Ist-Temperatur`, z. B. 12,8 °C), `heatingEnabled` und `summerMode` direkt aus den openHAB-Items aus, ohne darauf warten zu müssen, dass ein Slider oder Sensor nach dem Neustart manuell bewegt wird.
   7. **Fix gegen Nacht (3) / Frost (4) Flip-Flop (17.11.2026):** Wenn ein Raum im Ruhebetrieb (`targetRelayState == OFF`) manuell auf **Frost (4)** geschaltet wurde, während `offHvacMode = 3` (Nacht) konfiguriert war, löschte das Binding `manualOverrideUntil` und versuchte in derselben Millisekunde über `evaluateHeatingLogic()` wieder `3` (Nacht) zu erzwingen, was auf dem KNX-Bus zu einem Endlos-Ping-Pong zwischen `3` und `4` führte. Nun akzeptiert `evaluateHeatingLogic()` im Ruhebetrieb sowohl `3` (Nacht) als auch `4` (Frost) als gültigen Aus-Zustand (`expectedHvacMode == 3 || expectedHvacMode == 4`), ohne dagegenzusteuern.
@@ -201,6 +201,9 @@ Number:Temperature Raum_Saal_currentTemperature "Ist-Temperatur [%.1f °C]" {
      - `CHANNEL_MANUAL_OVERRIDE_UNTIL` löscht den Handbetrieb nur noch bei echten expliziten Befehlen (`isExplicitCommand == true`), niemals mehr durch eigene `ItemStateChangedEvent (to UNDEF)`-Echos vom EventBus.
      - `expectedHvacMode` und `expectedActuatorTargetTemp` werden sofort vor dem Absenden von Folgebefehlen aktualisiert.
      - `relayState` startet mit `null` statt `OnOffType.OFF`, sodass beim ersten Durchlauf nach einem Neustart oder JAR-Update garantiert `heatingRelay = OFF` und `actualHeatingStart = UNDEF` an openHAB gesendet werden (verhindert ein hängengebliebenes grünes „Vorheizen aktiv seit ...“-Banner).
+  9. **Energiespar-Option: Vorzeitiges Abschalten vor Terminende (`earlyStopMinutes`, 19.11.2026):**
+     - Neues Einstellungsfeld `Vorzeitiges Abschalten vor Terminende (Minuten)` (`earlyStopMinutes`, 0–240 Minuten, Standard `0`) in `thing-types.xml` und `RoomHeaterHandler.java`.
+     - Schaltet die Heizung (Relais `OFF`, HVAC-Modus `offHvacMode`, Sollwert `offTemperature`) bereits $X$ Minuten vor dem regulären Terminende ab, während der Termin selbst noch bis zum tatsächlichen Ende in der Terminliste angezeigt wird.
 
 ---
 
@@ -210,7 +213,8 @@ Falls in künftigen Chat-Verläufen ein bestimmter Stand wiederhergestellt werde
 
 | Commit | Beschreibung | Zustand |
 |---|---|---|
-| **Aktuell (HEAD)** | **openHAB 5.2.3-SNAPSHOT (18.11.2026):** Filter gegen eigene EventBus-Echos (`event.getSource()`), `CHANNEL_MANUAL_OVERRIDE_UNTIL` nur bei `isExplicitCommand`, `relayState = null` für sauberen Startup-Reset von `actualHeatingStart`, Schutz gegen Nacht/Frost-Flip-Flop, bidirektionale Steuerung direkter KNX-Items, 19 Unit-Tests. | **Empfohlen / Produktiv** |
+| **Aktuell (HEAD)** | **openHAB 5.2.3-SNAPSHOT (19.11.2026):** Energiespar-Option `earlyStopMinutes` (Vorzeitiges Abschalten vor Terminende), Filter gegen eigene EventBus-Echos, `relayState = null` Startup-Sync, Schutz gegen Nacht/Frost-Flip-Flop, bidirektionale Steuerung direkter KNX-Items, 20 Unit-Tests. | **Empfohlen / Produktiv** |
+| `5efdf91` | Stand vom 18.11.2026 mit Jugendraum-Echo-Fix und Banner-Reset. | Stabil, vor `earlyStopMinutes`. |
 | `3270f36` | Version-Bump auf openHAB 5.2.3-SNAPSHOT (17.11.2026). | Stabil, vor Jugendraum-Echo-Fix. |
 | `a02ad3c` | Stand 5.2.1-SNAPSHOT mit Nacht/Frost-Flip-Flop-Fix (17.11.2026). | Stabil. |
 | `c6aebb5` | Stand vom 16.11.2026 mit Startup-Sync und Direct-KNX-Item-Support. | Stabil, vor Frost/Nacht-Flip-Flop-Fix. |

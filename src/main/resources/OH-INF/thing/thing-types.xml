@@ -138,6 +138,13 @@
                 <default>true</default>
             </parameter>
 
+            <parameter name="earlyStopMinutes" type="integer" min="0" max="240">
+                <label>Vorzeitiges Abschalten vor Terminende (Minuten)</label>
+                <description>Wie viele Minuten vor dem regulären Ende des Termins soll die Heizung bereits abschalten, um Restwärme zu nutzen und Energie zu sparen? (z.B. 30 = Heizung schaltet 30 Minuten vor Terminende aus; 0 = erst genau zum Terminende)</description>
+                <default>0</default>
+                <advanced>false</advanced>
+            </parameter>
+
             <parameter name="enableExternalManualMode" type="boolean">
                 <label>KNX Handbetrieb erlauben</label>
                 <description>Aktiviert die Erkennung, ob der KNX Taster im Raum manuell umgeschaltet wurde, um die Automatik zu pausieren.</description>
