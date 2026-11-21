@@ -192,8 +192,8 @@ Number:Temperature Raum_Saal_currentTemperature "Ist-Temperatur [%.1f °C]" {
   1. `EventPublisher` wird per OSGi Declarative Services in `ChurchToolsHandlerFactory` injiziert und an die `RoomHeaterHandler` übergeben.
   2. In `updateHvacMode` und `updateActuatorTargetTemp` prüft das Binding nun, ob `knxHvacModeItem` bzw. `knxTargetTempItem` konfiguriert sind. Falls das Item nicht bereits mit dem entsprechenden Channel verknüpft ist, sendet das Binding den Schaltbefehl (`Komfort = 1` / `Nacht = 3`) und die Solltemperatur (`21,5 °C` / `12,0 °C`) per `EventPublisher.post(ItemEventFactory.createCommandEvent(...))` **direkt an das KNX-Item**!
   3. Zusätzliche Absicherung: Bei `newActuatorTemp <= offTemp` wird nur dann ein manueller AUS-Handbetrieb ausgelöst, wenn die Solltemperatur zuvor tatsächlich im Heizbetrieb war (`currentExpected > offTemp + 0.4`).
-  4. Alle 20 Unit-Tests (inklusive Direct-KNX-Item-Befehlstest, Startup-Sync-Test, Frost/Nacht-FlipFlop-Test, Self-Echo-Filter-Test und EarlyStop-Test) erfolgreich.
-  5. **Fix gegen sofortiges Rücksetzen des Nacht-Handbetriebs:** Beim Umschalten auf Nacht während eines Termins bestätigte der KNX-Aktor seine Absenktemperatur (12 °C). Die Abfrage in `CHANNEL_ACTUATOR_TARGET_TEMP` hatte den gerade aktivierten 4h/6h-Handbetrieb 18 ms später fälschlich als "Temperaturabsenkung beendet Handbetrieb" interpretiert und gelöscht. Dies ist nun strikt auf `targetRelayState == OFF && currentExpected > (offTemp + 0.4)` begrenzt – der Nacht-Handbetrieb während Terminen bleibt damit felsenfest aktiv!
+  4. Alle 21 Unit-Tests (inklusive Direct-KNX-Item-Befehlstest, Startup-Sync-Test, Frost/Nacht-FlipFlop-Test, Self-Echo-Filter-Test, EarlyStop-Test und Setpoint-1Grad-Test) erfolgreich.
+  5. **Fix gegen sofortiges Rücksetzen des Nacht-Handbetriebs:** Beim Umschalten auf Nacht während eines Termins bestätigte der KNX-Aktor seine Absenktemperatur (12 °C). Die Abfrage in `CHANNEL_ACTUATOR_TARGET_TEMP` hatte den gerade aktivierten 4h/6h-Handbetrieb 18 ms später fälschlich als "Temperaturabsenkung beendet Handbetrieb" interpretiert und gelöscht. Dies ist nun strikt auf `targetRelayState == OFF && currentExpected > (offTemp + 1.0)` begrenzt – der Nacht-Handbetrieb während Terminen bleibt damit felsenfest aktiv!
   6. **Automatisches Einlesen persistierter Item-Werte nach openHAB-Neustart (`syncInputParametersFromItems`):** Über `ItemChannelLinkRegistry` und `ItemRegistry` liest das Binding die aktuellen/persistierten Werte für `targetTemperature` (`Sollwert Vorlauf`, z. B. 21,5 °C), `currentTemperature` (`Ist-Temperatur`, z. B. 12,8 °C), `heatingEnabled` und `summerMode` direkt aus den openHAB-Items aus, ohne darauf warten zu müssen, dass ein Slider oder Sensor nach dem Neustart manuell bewegt wird.
   7. **Fix gegen Nacht (3) / Frost (4) Flip-Flop (17.11.2026):** Wenn ein Raum im Ruhebetrieb (`targetRelayState == OFF`) manuell auf **Frost (4)** geschaltet wurde, während `offHvacMode = 3` (Nacht) konfiguriert war, löschte das Binding `manualOverrideUntil` und versuchte in derselben Millisekunde über `evaluateHeatingLogic()` wieder `3` (Nacht) zu erzwingen, was auf dem KNX-Bus zu einem Endlos-Ping-Pong zwischen `3` und `4` führte. Nun akzeptiert `evaluateHeatingLogic()` im Ruhebetrieb sowohl `3` (Nacht) als auch `4` (Frost) als gültigen Aus-Zustand (`expectedHvacMode == 3 || expectedHvacMode == 4`), ohne dagegenzusteuern.
   8. **Fix gegen Jugendraum-Echo-Ping-Pong & hängengebliebenes Vorheiz-Banner (18.11.2026):**
@@ -204,6 +204,9 @@ Number:Temperature Raum_Saal_currentTemperature "Ist-Temperatur [%.1f °C]" {
   9. **Energiespar-Option: Vorzeitiges Abschalten vor Terminende (`earlyStopMinutes`, 19.11.2026):**
      - Neues Einstellungsfeld `Vorzeitiges Abschalten vor Terminende (Minuten)` (`earlyStopMinutes`, 0–240 Minuten, Standard `0`) in `thing-types.xml` und `RoomHeaterHandler.java`.
      - Schaltet die Heizung (Relais `OFF`, HVAC-Modus `offHvacMode`, Sollwert `offTemperature`) bereits $X$ Minuten vor dem regulären Terminende ab, während der Termin selbst noch bis zum tatsächlichen Ende in der Terminliste angezeigt wird.
+  10. **Sollwert-Änderung (> 1.0 °C) ohne Betriebsart-Umschaltung (21.11.2026):**
+     - Eine Änderung von `CHANNEL_ACTUATOR_TARGET_TEMP` (Aktor-Sollwert KNX) ändert **niemals** mehr die Betriebsart (`hvacMode`), damit der KNX-Taster (MDT / Z41) nicht seinen internen Komfort-Preset über den neuen Sollwert schreibt.
+     - Erst bei einer Abweichung von **mehr als `1.0 °C`** (`Math.abs(newActuatorTemp - currentExpected) > 1.0`) wird der Handbetrieb (`manualOverrideUntil`) für die eingestellten Stunden aktiviert (kleine Änderungen wie `10.0 -> 10.5 °C` lösen keinen Handbetrieb aus). Nach Ablauf des Handbetriebs wird der Sollwert automatisch wieder auf den Standardwert zurückgesetzt.
 
 ---
 
@@ -213,7 +216,8 @@ Falls in künftigen Chat-Verläufen ein bestimmter Stand wiederhergestellt werde
 
 | Commit | Beschreibung | Zustand |
 |---|---|---|
-| **Aktuell (HEAD)** | **openHAB 5.2.3-SNAPSHOT (19.11.2026):** Energiespar-Option `earlyStopMinutes` (Vorzeitiges Abschalten vor Terminende), Filter gegen eigene EventBus-Echos, `relayState = null` Startup-Sync, Schutz gegen Nacht/Frost-Flip-Flop, bidirektionale Steuerung direkter KNX-Items, 20 Unit-Tests. | **Empfohlen / Produktiv** |
+| **Aktuell (HEAD)** | **openHAB 5.2.3-SNAPSHOT (21.11.2026):** Sollwert-Handbetrieb ab `> 1.0 °C` ohne Betriebsart-Änderung, Energiespar-Option `earlyStopMinutes`, Filter gegen eigene EventBus-Echos, `relayState = null` Startup-Sync, Schutz gegen Nacht/Frost-Flip-Flop, bidirektionale Steuerung direkter KNX-Items, 21 Unit-Tests. | **Empfohlen / Produktiv** |
+| `e347e2a` | Stand vom 19.11.2026 mit `earlyStopMinutes`. | Stabil, vor 1.0 °C Sollwert-Entkopplung. |
 | `5efdf91` | Stand vom 18.11.2026 mit Jugendraum-Echo-Fix und Banner-Reset. | Stabil, vor `earlyStopMinutes`. |
 | `3270f36` | Version-Bump auf openHAB 5.2.3-SNAPSHOT (17.11.2026). | Stabil, vor Jugendraum-Echo-Fix. |
 | `a02ad3c` | Stand 5.2.1-SNAPSHOT mit Nacht/Frost-Flip-Flop-Fix (17.11.2026). | Stabil. |

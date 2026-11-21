@@ -539,4 +539,41 @@ public class RoomHeaterHandlerTest {
             eq(new DecimalType(3))
         );
     }
+
+    @Test
+    public void testSetpointChange_DoesNotChangeHvacMode_RequiresMoreThan1Degree() throws Exception {
+        config.put("offTemperature", 10.0);
+        when(api.getBookings(eq(5), anyBoolean())).thenReturn(new ArrayList<>());
+        handler.processChannelState(ChurchToolsHeatingBindingConstants.CHANNEL_TARGET_TEMPERATURE, new DecimalType(21.0));
+
+        // Room is idle at offTemperature = 10.0 °C, HVAC mode = 3 (Nacht)
+        reset(callback);
+
+        // 1. Small change of +0.5 °C (10.0 -> 10.5 °C, e.g. old rule or minor jitter) MUST NOT trigger manual override or change HVAC mode!
+        handler.processChannelState(ChurchToolsHeatingBindingConstants.CHANNEL_ACTUATOR_TARGET_TEMP, new DecimalType(10.5), false);
+        verify(callback, never()).stateUpdated(
+            eq(new ChannelUID(thingUID, ChurchToolsHeatingBindingConstants.CHANNEL_MANUAL_OVERRIDE_UNTIL)),
+            any(DateTimeType.class)
+        );
+        verify(callback, never()).postCommand(
+            eq(new ChannelUID(thingUID, ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE)),
+            any()
+        );
+
+        // 2. Setpoint change > 1.0 °C (10.5 -> 20.0 °C) MUST activate manual override, turn relay ON, but NEVER change HVAC mode!
+        reset(callback);
+        handler.processChannelState(ChurchToolsHeatingBindingConstants.CHANNEL_ACTUATOR_TARGET_TEMP, new DecimalType(20.0), false);
+        verify(callback, atLeastOnce()).stateUpdated(
+            eq(new ChannelUID(thingUID, ChurchToolsHeatingBindingConstants.CHANNEL_MANUAL_OVERRIDE_UNTIL)),
+            any(DateTimeType.class)
+        );
+        verify(callback, atLeastOnce()).postCommand(
+            eq(new ChannelUID(thingUID, ChurchToolsHeatingBindingConstants.CHANNEL_HEATING_RELAY)),
+            eq(OnOffType.ON)
+        );
+        verify(callback, never()).postCommand(
+            eq(new ChannelUID(thingUID, ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE)),
+            any()
+        );
+    }
 }
