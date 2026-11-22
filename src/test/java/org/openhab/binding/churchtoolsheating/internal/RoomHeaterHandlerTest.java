@@ -576,4 +576,42 @@ public class RoomHeaterHandlerTest {
             any()
         );
     }
+
+    @Test
+    public void testPreheatingLatchesOnceStartedWhenRoomTemperatureRises() throws Exception {
+        // Event starts in 2 hours (120 min)
+        List<ChurchToolsAPI.Booking> bookings = new ArrayList<>();
+        ChurchToolsAPI.Booking upcomingBooking = new ChurchToolsAPI.Booking();
+        upcomingBooking.id = 999;
+        upcomingBooking.caption = "Gottesdienst";
+        upcomingBooking.startDate = ZonedDateTime.now().plusMinutes(120);
+        upcomingBooking.endDate = ZonedDateTime.now().plusMinutes(240);
+        bookings.add(upcomingBooking);
+        when(api.getBookings(eq(5), anyBoolean())).thenReturn(bookings);
+
+        // Target = 22.0 °C, Current = 21.0 °C -> deltaT = 1.0 °C -> vorlauf2 = 2.5h (150 min)
+        // Since event is in 120 min (< 150 min), preheating starts immediately!
+        handler.processChannelState(ChurchToolsHeatingBindingConstants.CHANNEL_TARGET_TEMPERATURE, new DecimalType(22.0));
+        handler.processChannelState(ChurchToolsHeatingBindingConstants.CHANNEL_CURRENT_TEMPERATURE, new DecimalType(21.0));
+
+        verify(callback, atLeastOnce()).postCommand(
+            eq(new ChannelUID(thingUID, ChurchToolsHeatingBindingConstants.CHANNEL_HEATING_RELAY)),
+            eq(OnOffType.ON)
+        );
+        reset(callback);
+
+        // Now room warms up from 21.0 °C to 21.6 °C (deltaT = 0.4 °C <= dt1=0.5 -> raw vorlauf1 = 1.0h = 60 min).
+        // Without latching, raw vorlaufZeit would move to (now + 60 min) and turn heating OFF.
+        // With latching, preheating MUST stay ON!
+        handler.processChannelState(ChurchToolsHeatingBindingConstants.CHANNEL_CURRENT_TEMPERATURE, new DecimalType(21.6));
+
+        verify(callback, never()).postCommand(
+            eq(new ChannelUID(thingUID, ChurchToolsHeatingBindingConstants.CHANNEL_HEATING_RELAY)),
+            eq(OnOffType.OFF)
+        );
+        verify(callback, never()).postCommand(
+            eq(new ChannelUID(thingUID, ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE)),
+            eq(new DecimalType(3))
+        );
+    }
 }

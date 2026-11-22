@@ -47,6 +47,8 @@ public class RoomHeaterHandler extends BaseThingHandler {
     private java.math.BigDecimal expectedHvacMode = null;
     private Double expectedActuatorTargetTemp = null;
     private OnOffType previousTargetRelayState = OnOffType.OFF;
+    private ZonedDateTime latchedHeatingEventStart = null;
+    private ZonedDateTime latchedVorlaufZeit = null;
     
     private List<ChurchToolsAPI.Booking> cachedBookings = null;
     private long lastApiFetchTime = 0;
@@ -546,9 +548,16 @@ public class RoomHeaterHandler extends BaseThingHandler {
             }
 
             if (eventStart == null) {
+                latchedHeatingEventStart = null;
+                latchedVorlaufZeit = null;
                 updateState(ChurchToolsHeatingBindingConstants.CHANNEL_HEATING_START, UnDefType.UNDEF);
                 targetRelayState = OnOffType.OFF;
             } else {
+                if (latchedHeatingEventStart != null && !latchedHeatingEventStart.isEqual(eventStart)) {
+                    latchedHeatingEventStart = null;
+                    latchedVorlaufZeit = null;
+                }
+
                 // 2. Calculate Pre-heat time (4-point curve)
                 boolean enablePreheating = getBooleanConfig("enablePreheating", true);
 
@@ -579,10 +588,23 @@ public class RoomHeaterHandler extends BaseThingHandler {
                     } else {
                         vorlaufH = h4;
                     }
+                } else {
+                    latchedHeatingEventStart = null;
+                    latchedVorlaufZeit = null;
                 }
 
                 int vorlaufInMinuten = (int) (vorlaufH * 60.0);
                 ZonedDateTime vorlaufZeit = eventStart.minusMinutes(vorlaufInMinuten);
+
+                // Latch preheating start once active for this event so rising room temperature does not pause preheating
+                if (latchedHeatingEventStart != null && latchedVorlaufZeit != null && now.isBefore(heatingEnd)) {
+                    if (vorlaufZeit.isAfter(latchedVorlaufZeit)) {
+                        vorlaufZeit = latchedVorlaufZeit;
+                    } else {
+                        latchedVorlaufZeit = vorlaufZeit;
+                    }
+                }
+
                 updateState(ChurchToolsHeatingBindingConstants.CHANNEL_HEATING_START, new DateTimeType(vorlaufZeit));
 
                 logger.debug("Heating evaluation: targetTemp={}, currentTemp={}, deltaT={}, vorlaufH={}h ({} min), eventStart={}, heatingEnd={} (earlyStop={} min), vorlaufZeit={}",
@@ -590,9 +612,15 @@ public class RoomHeaterHandler extends BaseThingHandler {
 
                 // 3. Control logic
                 if (summerMode || !heatingEnabled) {
+                    latchedHeatingEventStart = null;
+                    latchedVorlaufZeit = null;
                     targetRelayState = OnOffType.OFF;
                 } else if (now.isAfter(vorlaufZeit) && now.isBefore(heatingEnd)) {
                     targetRelayState = OnOffType.ON;
+                    latchedHeatingEventStart = eventStart;
+                    if (latchedVorlaufZeit == null || vorlaufZeit.isBefore(latchedVorlaufZeit)) {
+                        latchedVorlaufZeit = vorlaufZeit;
+                    }
                 } else {
                     targetRelayState = OnOffType.OFF;
                 }

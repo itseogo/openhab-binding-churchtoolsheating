@@ -207,6 +207,9 @@ Number:Temperature Raum_Saal_currentTemperature "Ist-Temperatur [%.1f °C]" {
   10. **Sollwert-Änderung (> 1.0 °C) ohne Betriebsart-Umschaltung (21.11.2026):**
      - Eine Änderung von `CHANNEL_ACTUATOR_TARGET_TEMP` (Aktor-Sollwert KNX) ändert **niemals** mehr die Betriebsart (`hvacMode`), damit der KNX-Taster (MDT / Z41) nicht seinen internen Komfort-Preset über den neuen Sollwert schreibt.
      - Erst bei einer Abweichung von **mehr als `1.0 °C`** (`Math.abs(newActuatorTemp - currentExpected) > 1.0`) wird der Handbetrieb (`manualOverrideUntil`) für die eingestellten Stunden aktiviert (kleine Änderungen wie `10.0 -> 10.5 °C` lösen keinen Handbetrieb aus). Nach Ablauf des Handbetriebs wird der Sollwert automatisch wieder auf den Standardwert zurückgesetzt.
+  11. **Halte-Logik für das Vorheizen (Preheating Latch, 22.11.2026):**
+     - Sobald das Vorheizen für einen Termin gestartet ist (`targetRelayState == ON`), werden `latchedHeatingEventStart` und `latchedVorlaufZeit` für diesen Termin festgehalten.
+     - Steigt während des Aufheizens die Raumtemperatur (`currentTemp`), verschiebt sich `vorlaufZeit` nicht mehr nachträglich in die Zukunft und unterbricht das Vorheizen nicht mehr zwischendurch.
 
 ---
 
@@ -216,7 +219,8 @@ Falls in künftigen Chat-Verläufen ein bestimmter Stand wiederhergestellt werde
 
 | Commit | Beschreibung | Zustand |
 |---|---|---|
-| **Aktuell (HEAD)** | **openHAB 5.2.3-SNAPSHOT (21.11.2026):** Sollwert-Handbetrieb ab `> 1.0 °C` ohne Betriebsart-Änderung, Energiespar-Option `earlyStopMinutes`, Filter gegen eigene EventBus-Echos, `relayState = null` Startup-Sync, Schutz gegen Nacht/Frost-Flip-Flop, bidirektionale Steuerung direkter KNX-Items, 21 Unit-Tests. | **Empfohlen / Produktiv** |
+| **Aktuell (HEAD)** | **openHAB 5.2.3-SNAPSHOT (22.11.2026):** Halte-Logik für begonnenes Vorheizen (Preheating Latch), Sollwert-Handbetrieb ab `> 1.0 °C` ohne Betriebsart-Änderung, Energiespar-Option `earlyStopMinutes`, Filter gegen eigene EventBus-Echos, `relayState = null` Startup-Sync, Schutz gegen Nacht/Frost-Flip-Flop, bidirektionale Steuerung direkter KNX-Items, 22 Unit-Tests. | **Empfohlen / Produktiv** |
+| `676ab66` | Stand vom 21.11.2026 mit Sollwert-Handbetrieb ab `> 1.0 °C` ohne Betriebsart-Änderung. | Stabil, vor Preheating-Latch. |
 | `e347e2a` | Stand vom 19.11.2026 mit `earlyStopMinutes`. | Stabil, vor 1.0 °C Sollwert-Entkopplung. |
 | `5efdf91` | Stand vom 18.11.2026 mit Jugendraum-Echo-Fix und Banner-Reset. | Stabil, vor `earlyStopMinutes`. |
 | `3270f36` | Version-Bump auf openHAB 5.2.3-SNAPSHOT (17.11.2026). | Stabil, vor Jugendraum-Echo-Fix. |
