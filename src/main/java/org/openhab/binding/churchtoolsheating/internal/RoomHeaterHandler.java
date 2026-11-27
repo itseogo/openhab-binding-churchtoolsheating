@@ -40,6 +40,10 @@ public class RoomHeaterHandler extends BaseThingHandler {
     private double targetTemp = 20.0;
     private boolean summerMode = false;
     private boolean heatingEnabled = true;
+    private boolean targetTempReceived = false;
+    private boolean currentTempReceived = false;
+    private boolean heatingEnabledReceived = false;
+    private boolean summerModeReceived = false;
     private OnOffType relayState = null;
     private OnOffType targetRelayState = OnOffType.OFF;
 
@@ -123,32 +127,40 @@ public class RoomHeaterHandler extends BaseThingHandler {
 
     private void syncInputParametersFromItems() {
         // 1. Target Temperature (Sollwert Vorlauf)
-        State targetState = getChannelItemState(ChurchToolsHeatingBindingConstants.CHANNEL_TARGET_TEMPERATURE);
-        Double parsedTarget = parseTemperatureState(targetState);
-        if (parsedTarget != null && parsedTarget > 0) {
-            this.targetTemp = parsedTarget;
+        if (!targetTempReceived) {
+            State targetState = getChannelItemState(ChurchToolsHeatingBindingConstants.CHANNEL_TARGET_TEMPERATURE);
+            Double parsedTarget = parseTemperatureState(targetState);
+            if (parsedTarget != null && parsedTarget > 0) {
+                this.targetTemp = parsedTarget;
+            }
         }
 
         // 2. Current Temperature (Ist-Temperatur via knxCurrentTempItem or Channel)
-        State currentState = getConfiguredItemState("knxCurrentTempItem");
-        if (currentState == null) {
-            currentState = getChannelItemState(ChurchToolsHeatingBindingConstants.CHANNEL_CURRENT_TEMPERATURE);
-        }
-        Double parsedCurrent = parseTemperatureState(currentState);
-        if (parsedCurrent != null && parsedCurrent > 0) {
-            this.currentTemp = parsedCurrent;
+        if (!currentTempReceived) {
+            State currentState = getConfiguredItemState("knxCurrentTempItem");
+            if (currentState == null) {
+                currentState = getChannelItemState(ChurchToolsHeatingBindingConstants.CHANNEL_CURRENT_TEMPERATURE);
+            }
+            Double parsedCurrent = parseTemperatureState(currentState);
+            if (parsedCurrent != null && parsedCurrent > 0) {
+                this.currentTemp = parsedCurrent;
+            }
         }
 
         // 3. Heating Enabled
-        State enabledState = getChannelItemState(ChurchToolsHeatingBindingConstants.CHANNEL_HEATING_ENABLED);
-        if (enabledState instanceof OnOffType) {
-            this.heatingEnabled = (enabledState == OnOffType.ON);
+        if (!heatingEnabledReceived) {
+            State enabledState = getChannelItemState(ChurchToolsHeatingBindingConstants.CHANNEL_HEATING_ENABLED);
+            if (enabledState instanceof OnOffType) {
+                this.heatingEnabled = (enabledState == OnOffType.ON);
+            }
         }
 
         // 4. Summer Mode
-        State summerState = getChannelItemState(ChurchToolsHeatingBindingConstants.CHANNEL_SUMMER_MODE);
-        if (summerState instanceof OnOffType) {
-            this.summerMode = (summerState == OnOffType.ON);
+        if (!summerModeReceived) {
+            State summerState = getChannelItemState(ChurchToolsHeatingBindingConstants.CHANNEL_SUMMER_MODE);
+            if (summerState instanceof OnOffType) {
+                this.summerMode = (summerState == OnOffType.ON);
+            }
         }
     }
 
@@ -276,6 +288,7 @@ public class RoomHeaterHandler extends BaseThingHandler {
                         } catch (NumberFormatException e) {}
                     }
                     if (newCurrentTemp > 0) {
+                        currentTempReceived = true;
                         if (Math.abs(currentTemp - newCurrentTemp) >= 0.05) {
                             currentTemp = newCurrentTemp;
                             evaluateHeatingLogic();
@@ -294,6 +307,7 @@ public class RoomHeaterHandler extends BaseThingHandler {
                         } catch (NumberFormatException e) {}
                     }
                     if (newTargetTemp > 0) {
+                        targetTempReceived = true;
                         if (Math.abs(targetTemp - newTargetTemp) >= 0.05) {
                             targetTemp = newTargetTemp;
                             evaluateHeatingLogic();
@@ -307,8 +321,26 @@ public class RoomHeaterHandler extends BaseThingHandler {
                     } else if (state instanceof StringType) {
                         newSummer = state.toString().equalsIgnoreCase("ON");
                     }
+                    summerModeReceived = true;
                     if (newSummer != summerMode) {
+                        boolean wasHeatingByAutomation = !summerMode && newSummer && heatingEnabled
+                                && (targetRelayState == OnOffType.ON || relayState == OnOffType.ON)
+                                && manualOverrideUntil == null;
                         summerMode = newSummer;
+                        if (summerMode) {
+                            manualOverrideUntil = null;
+                            previousTargetRelayState = OnOffType.OFF;
+                            updateState(ChurchToolsHeatingBindingConstants.CHANNEL_MANUAL_OVERRIDE_UNTIL, UnDefType.UNDEF);
+                            updateRelay(OnOffType.OFF);
+                            if (wasHeatingByAutomation) {
+                                int configuredOffMode = getIntConfig("offHvacMode", 3);
+                                double offTemp = getDoubleConfig("offTemperature", 17.0);
+                                updateHvacMode(java.math.BigDecimal.valueOf(configuredOffMode));
+                                updateActuatorTargetTemp(offTemp);
+                                logger.info("Summer mode enabled while actively heating by schedule for resource {}. Turning KNX heating OFF once.",
+                                        getConfig().get("resourceId"));
+                            }
+                        }
                         updateState(ChurchToolsHeatingBindingConstants.CHANNEL_SUMMER_MODE, summerMode ? OnOffType.ON : OnOffType.OFF);
                         evaluateHeatingLogic();
                     }
@@ -318,12 +350,30 @@ public class RoomHeaterHandler extends BaseThingHandler {
                     if (state instanceof OnOffType || state instanceof StringType) {
                         newEnabled = state.toString().equalsIgnoreCase("ON");
                     }
+                    heatingEnabledReceived = true;
                     if (newEnabled != heatingEnabled) {
+                        boolean wasHeatingByAutomation = heatingEnabled && !newEnabled && !summerMode
+                                && (targetRelayState == OnOffType.ON || relayState == OnOffType.ON)
+                                && manualOverrideUntil == null;
                         heatingEnabled = newEnabled;
                         manualOverrideUntil = null;
                         previousTargetRelayState = OnOffType.OFF;
                         updateState(ChurchToolsHeatingBindingConstants.CHANNEL_MANUAL_OVERRIDE_UNTIL, UnDefType.UNDEF);
                         updateState(ChurchToolsHeatingBindingConstants.CHANNEL_HEATING_ENABLED, heatingEnabled ? OnOffType.ON : OnOffType.OFF);
+                        if (!heatingEnabled) {
+                            updateRelay(OnOffType.OFF);
+                            if (wasHeatingByAutomation) {
+                                int configuredOffMode = getIntConfig("offHvacMode", 3);
+                                double offTemp = getDoubleConfig("offTemperature", 17.0);
+                                updateHvacMode(java.math.BigDecimal.valueOf(configuredOffMode));
+                                updateActuatorTargetTemp(offTemp);
+                                logger.info("Heating automation disabled while actively heating by schedule for resource {}. Turning KNX heating OFF once.",
+                                        getConfig().get("resourceId"));
+                            } else {
+                                logger.info("Heating automation disabled while in manual mode or idle for resource {}. Leaving KNX bus untouched.",
+                                        getConfig().get("resourceId"));
+                            }
+                        }
                         evaluateHeatingLogic();
                     }
                     break;
@@ -349,6 +399,10 @@ public class RoomHeaterHandler extends BaseThingHandler {
                         } catch (NumberFormatException e) {}
                     }
                     if (newActuatorTemp > 0) {
+                        if (!heatingEnabled || summerMode) {
+                            expectedActuatorTargetTemp = newActuatorTemp;
+                            break;
+                        }
                         boolean enableExternalManualMode = getBooleanConfig("enableExternalManualMode", true);
                         double offTemp = getDoubleConfig("offTemperature", 17.0);
                         double defaultExpected = (targetRelayState == OnOffType.ON) ? targetTemp : offTemp;
@@ -386,6 +440,17 @@ public class RoomHeaterHandler extends BaseThingHandler {
                     }
                     
                     if (newMode != null) {
+                        if (!heatingEnabled || summerMode) {
+                            boolean modeChanged = (expectedHvacMode == null || newMode.compareTo(expectedHvacMode) != 0);
+                            expectedHvacMode = newMode;
+                            if (modeChanged) {
+                                updateState(ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE, new DecimalType(newMode));
+                                if (isExplicitCommand) {
+                                    sendCommandToConfiguredItem("knxHvacModeItem", ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE, new DecimalType(newMode));
+                                }
+                            }
+                            break;
+                        }
                         boolean enableExternalManualMode = getBooleanConfig("enableExternalManualMode", true);
                         java.math.BigDecimal currentExpectedMode = expectedHvacMode != null ? expectedHvacMode : java.math.BigDecimal.valueOf(getIntConfig("offHvacMode", 3));
                         boolean modeChanged = (expectedHvacMode == null || newMode.compareTo(expectedHvacMode) != 0);
@@ -651,8 +716,9 @@ public class RoomHeaterHandler extends BaseThingHandler {
             }
 
             if (!heatingEnabled || summerMode) {
-                // Automation is disabled, we do not interfere with the KNX bus at all (hands off).
-                // Sync UI with internal state
+                // Automation is disabled: ensure CT heatingRelay & actualHeatingStart banner are OFF,
+                // and do not interfere with the KNX bus on periodic polling (hands off).
+                updateRelay(OnOffType.OFF);
                 updateState(ChurchToolsHeatingBindingConstants.CHANNEL_HEATING_ENABLED, heatingEnabled ? OnOffType.ON : OnOffType.OFF);
                 updateState(ChurchToolsHeatingBindingConstants.CHANNEL_SUMMER_MODE, summerMode ? OnOffType.ON : OnOffType.OFF);
                 return;

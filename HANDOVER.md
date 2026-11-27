@@ -210,6 +210,11 @@ Number:Temperature Raum_Saal_currentTemperature "Ist-Temperatur [%.1f °C]" {
   11. **Halte-Logik für das Vorheizen (Preheating Latch, 22.11.2026):**
      - Sobald das Vorheizen für einen Termin gestartet ist (`targetRelayState == ON`), werden `latchedHeatingEventStart` und `latchedVorlaufZeit` für diesen Termin festgehalten.
      - Steigt während des Aufheizens die Raumtemperatur (`currentTemp`), verschiebt sich `vorlaufZeit` nicht mehr nachträglich in die Zukunft und unterbricht das Vorheizen nicht mehr zwischendurch.
+  12. **Intelligentes Abschalten beim Deaktivieren der Heizautomatik (`Option C`, 27.11.2026):**
+     - Wird `Heizautomatik` (`heatingEnabled`) auf `OFF` (oder `Sommerbetrieb` auf `ON`) geschaltet, geht das CT-Relais (`heatingRelay = OFF`) und das grüne Heizphasen-Banner (`actualHeatingStart = UNDEF`) immer sofort aus.
+     - Befand sich der Raum zum Zeitpunkt des Abschaltens im **automatischen Termin-Heizbetrieb** (`manualOverrideUntil == null`), wird die Heizung zusätzlich **einmalig auf dem KNX-Bus abgeschaltet** (`offHvacMode` & `offTemperature`).
+     - Befand sich der Raum hingegen im **Handbetrieb** (`manualOverrideUntil != null`) oder im Ruhebetrieb, wird nur die Automatik samt Banner deaktiviert und der **KNX-Bus bleibt unberührt**.
+     - Zudem überschreibt `syncInputParametersFromItems()` bereits empfangene Live-Zustände (`heatingEnabledReceived`, `summerModeReceived`, etc.) nicht mehr mit verzögerten ItemRegistry-Werten.
 
 ---
 
@@ -219,7 +224,8 @@ Falls in künftigen Chat-Verläufen ein bestimmter Stand wiederhergestellt werde
 
 | Commit | Beschreibung | Zustand |
 |---|---|---|
-| **Aktuell (HEAD)** | **openHAB 5.2.3-SNAPSHOT (22.11.2026):** Halte-Logik für begonnenes Vorheizen (Preheating Latch), Sollwert-Handbetrieb ab `> 1.0 °C` ohne Betriebsart-Änderung, Energiespar-Option `earlyStopMinutes`, Filter gegen eigene EventBus-Echos, `relayState = null` Startup-Sync, Schutz gegen Nacht/Frost-Flip-Flop, bidirektionale Steuerung direkter KNX-Items, 22 Unit-Tests. | **Empfohlen / Produktiv** |
+| **Aktuell (HEAD)** | **openHAB 5.2.3-SNAPSHOT (27.11.2026):** Intelligentes Abschalten bei `Heizautomatik = Aus` (Option C: Automatik-Heizen schaltet KNX einmalig aus, Handbetrieb lässt KNX unberührt, grünes Banner erlischt sofort), Preheating Latch, Sollwert-Handbetrieb ab `> 1.0 °C` ohne Betriebsart-Änderung, `earlyStopMinutes`, 24 Unit-Tests. | **Empfohlen / Produktiv** |
+| `bb615ca` | Stand vom 22.11.2026 mit Preheating-Latch und aktualisierter README. | Stabil, vor Option-C Abschaltlogik. |
 | `676ab66` | Stand vom 21.11.2026 mit Sollwert-Handbetrieb ab `> 1.0 °C` ohne Betriebsart-Änderung. | Stabil, vor Preheating-Latch. |
 | `e347e2a` | Stand vom 19.11.2026 mit `earlyStopMinutes`. | Stabil, vor 1.0 °C Sollwert-Entkopplung. |
 | `5efdf91` | Stand vom 18.11.2026 mit Jugendraum-Echo-Fix und Banner-Reset. | Stabil, vor `earlyStopMinutes`. |

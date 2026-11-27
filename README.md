@@ -81,7 +81,11 @@ The binding automatically reads their persisted state on startup, listens for st
 ---
 
 ### 5. Heating Automation Switch (`heatingEnabled`) & Summer Mode (`summerMode`)
-- When `heatingEnabled` is `OFF` or `summerMode` is `ON`, `heatingRelay` is set to `OFF` and the binding operates in **hands-off mode** on the KNX bus (it does not overwrite or fight manual settings on the KNX bus while disabled).
+- When `heatingEnabled` is switched to `OFF` (or `summerMode` to `ON`):
+  - `heatingRelay` is immediately set to `OFF` and `actualHeatingStart` is cleared (`UNDEF`), so the green active heating banner in the widget turns off immediately.
+  - **Smart KNX Shut-Off:** If the room was actively heating **because of the schedule automation** (not in manual override), the binding turns the heating off on the KNX bus **once** (`offHvacMode` and `offTemperature`).
+  - **Preserving Manual Mode:** If the room was in **Manual Override (`Handbetrieb`)** or already idle when automation is turned off, the KNX bus is left completely untouched.
+  - While `heatingEnabled` remains `OFF` (or `summerMode` is `ON`), the binding stays in **hands-off mode** and does not trigger manual override timers or green heating banners when the KNX thermostat is operated manually.
 - When `heatingEnabled` is switched back to `ON` (and `summerMode` is `OFF`), the binding immediately re-evaluates the calendar and synchronizes the KNX actuators.
 
 ---

@@ -614,4 +614,86 @@ public class RoomHeaterHandlerTest {
             eq(new DecimalType(3))
         );
     }
+
+    @Test
+    public void testDisablingAutomationWhileActivelyHeatingBySchedule_TurnsKnxAndRelayOffOnce() throws Exception {
+        List<ChurchToolsAPI.Booking> bookings = new ArrayList<>();
+        ChurchToolsAPI.Booking activeBooking = new ChurchToolsAPI.Booking();
+        activeBooking.id = 1200;
+        activeBooking.caption = "Royal Rangers Treff";
+        activeBooking.startDate = ZonedDateTime.now().minusMinutes(30);
+        activeBooking.endDate = ZonedDateTime.now().plusHours(2);
+        bookings.add(activeBooking);
+        when(api.getBookings(eq(5), anyBoolean())).thenReturn(bookings);
+
+        // Room starts heating automatically for the event
+        handler.processChannelState(ChurchToolsHeatingBindingConstants.CHANNEL_TARGET_TEMPERATURE, new DecimalType(22.0));
+        verify(callback, atLeastOnce()).postCommand(
+            eq(new ChannelUID(thingUID, ChurchToolsHeatingBindingConstants.CHANNEL_HEATING_RELAY)),
+            eq(OnOffType.ON)
+        );
+        verify(callback, atLeastOnce()).postCommand(
+            eq(new ChannelUID(thingUID, ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE)),
+            eq(new DecimalType(1))
+        );
+
+        reset(callback);
+
+        // User turns Heizautomatik OFF during automatic event heating:
+        // MUST turn heatingRelay OFF, actualHeatingStart UNDEF, AND turn KNX off once (offHvacMode=3, offTemperature=17.0 °C)!
+        handler.processChannelState(ChurchToolsHeatingBindingConstants.CHANNEL_HEATING_ENABLED, OnOffType.OFF, true);
+
+        verify(callback, atLeastOnce()).postCommand(
+            eq(new ChannelUID(thingUID, ChurchToolsHeatingBindingConstants.CHANNEL_HEATING_RELAY)),
+            eq(OnOffType.OFF)
+        );
+        verify(callback, atLeastOnce()).stateUpdated(
+            eq(new ChannelUID(thingUID, ChurchToolsHeatingBindingConstants.CHANNEL_ACTUAL_HEATING_START)),
+            eq(UnDefType.UNDEF)
+        );
+        verify(callback, atLeastOnce()).postCommand(
+            eq(new ChannelUID(thingUID, ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE)),
+            eq(new DecimalType(3))
+        );
+        verify(callback, atLeastOnce()).postCommand(
+            eq(new ChannelUID(thingUID, ChurchToolsHeatingBindingConstants.CHANNEL_ACTUATOR_TARGET_TEMP)),
+            eq(new QuantityType<>("17.0 °C"))
+        );
+    }
+
+    @Test
+    public void testDisablingAutomationWhileInManualMode_TurnsRelayOffButLeavesKnxUntouched() throws Exception {
+        when(api.getBookings(eq(5), anyBoolean())).thenReturn(new ArrayList<>());
+        handler.processChannelState(ChurchToolsHeatingBindingConstants.CHANNEL_TARGET_TEMPERATURE, new DecimalType(22.0));
+
+        // User puts room into Manual Mode (Komfort = 1) outside of any event
+        handler.processChannelState(ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE, new DecimalType(1), false);
+        verify(callback, atLeastOnce()).postCommand(
+            eq(new ChannelUID(thingUID, ChurchToolsHeatingBindingConstants.CHANNEL_HEATING_RELAY)),
+            eq(OnOffType.ON)
+        );
+
+        reset(callback);
+
+        // User turns Heizautomatik OFF while in Manual Mode:
+        // MUST turn CT heatingRelay OFF (and actualHeatingStart UNDEF), but MUST leave KNX untouched!
+        handler.processChannelState(ChurchToolsHeatingBindingConstants.CHANNEL_HEATING_ENABLED, OnOffType.OFF, true);
+
+        verify(callback, atLeastOnce()).postCommand(
+            eq(new ChannelUID(thingUID, ChurchToolsHeatingBindingConstants.CHANNEL_HEATING_RELAY)),
+            eq(OnOffType.OFF)
+        );
+        verify(callback, atLeastOnce()).stateUpdated(
+            eq(new ChannelUID(thingUID, ChurchToolsHeatingBindingConstants.CHANNEL_ACTUAL_HEATING_START)),
+            eq(UnDefType.UNDEF)
+        );
+        verify(callback, never()).postCommand(
+            eq(new ChannelUID(thingUID, ChurchToolsHeatingBindingConstants.CHANNEL_HVAC_MODE)),
+            any()
+        );
+        verify(callback, never()).postCommand(
+            eq(new ChannelUID(thingUID, ChurchToolsHeatingBindingConstants.CHANNEL_ACTUATOR_TARGET_TEMP)),
+            any()
+        );
+    }
 }
